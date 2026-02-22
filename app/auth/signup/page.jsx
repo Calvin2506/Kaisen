@@ -162,7 +162,7 @@ export default function Signup() {
               name="name"
               value={formData.name}
               onChange={handleChange}
-              placeholder="Calvin"
+              placeholder="Name"
               required
               className="input-field"
             />
