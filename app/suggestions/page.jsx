@@ -1,402 +1,521 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { formatCurrency } from "@/lib/helpers"
+import { useState, useEffect } from "react";
+import { formatCurrency } from "@/lib/helpers";
+import { Card, CardContent, Badge, Button } from "@/components/ui";
+import PageShell, { LoadingScreen } from "@/components/PageShell";
 
-const FREE_ALTERNATIVES = {
-  Entertainment: [
-    { paid: "Netflix", free: "Tubi", description: "Free movies and TV shows with ads" },
-    { paid: "Disney+", free: "Pluto TV", description: "Free streaming with ads" },
-  ],
-  Music: [
-    { paid: "Spotify", free: "Spotify Free", description: "Free tier with ads and shuffle only" },
-    { paid: "Apple Music", free: "YouTube Music Free", description: "Free music with ads" },
-  ],
-  Productivity: [
-    { paid: "Notion", free: "Notion Free", description: "Free tier is generous for personal use" },
-    { paid: "Evernote", free: "Obsidian", description: "Completely free and powerful" },
-  ],
-  "Cloud Storage": [
-    { paid: "iCloud", free: "Google Drive", description: "15GB free storage" },
-    { paid: "Dropbox", free: "Google Drive", description: "15GB free vs 2GB on Dropbox free" },
-  ],
-  Education: [
-    { paid: "Coursera", free: "YouTube / freeCodeCamp", description: "Huge free learning content" },
-    { paid: "LinkedIn Learning", free: "Coursera Audit", description: "Audit courses for free" },
-  ],
-}
-
-const styles = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Serif+Display&display=swap');
-  .suggestion-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 16px;
-    padding: 28px;
-    margin-bottom: 16px;
-  }
-  .tip-item {
-    display: flex;
-    gap: 16px;
-    padding: 16px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-  }
-  .tip-item:last-child { border-bottom: none; }
-  .alt-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 12px;
-    padding: 14px 18px;
-    margin-bottom: 10px;
-    transition: border-color 0.15s ease;
-  }
-  .alt-row:hover { border-color: rgba(255,255,255,0.12); }
-  .yearly-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 12px;
-    padding: 14px 18px;
-    margin-bottom: 10px;
-    transition: border-color 0.15s ease;
-  }
-  .yearly-row:hover { border-color: rgba(34,197,94,0.2); }
-  .duplicate-tag {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 100px;
-    font-size: 12px;
-    font-weight: 500;
-    background: rgba(251,191,36,0.1);
-    border: 1px solid rgba(251,191,36,0.2);
-    color: #fbbf24;
-    margin: 4px;
-  }
-`
+const GENERAL_TIPS = [
+   {
+      icon: "🔍",
+      title: "Do a monthly audit",
+      desc: "Every month, review all your subscriptions and ask: did I use this enough to justify the cost?",
+   },
+   {
+      icon: "👨‍👩‍👧‍👦",
+      title: "Share plans with family",
+      desc: "Netflix, Spotify, iCloud and many others offer family plans that are significantly cheaper per person.",
+   },
+   {
+      icon: "⏱️",
+      title: "Use free trials wisely",
+      desc: "Sign up for free trials when you need a service for a short project, then cancel before billing.",
+   },
+   {
+      icon: "🎓",
+      title: "Check student discounts",
+      desc: "Spotify, Apple Music, Adobe and many others offer 50%+ discounts for students.",
+   },
+];
 
 export default function Suggestions() {
-  const [subscriptions, setSubscriptions] = useState([])
-  const [loading, setLoading] = useState(true)
+   const [subscriptions, setSubscriptions] = useState([]);
+   const [aiSuggestions, setAiSuggestions] = useState(null);
+   const [loading, setLoading] = useState(true);
+   const [aiLoading, setAiLoading] = useState(false);
+   const [aiError, setAiError] = useState(null);
 
-  useEffect(() => {
-    const fetchSubscriptions = async () => {
+   useEffect(() => {
+      const fetchSubscriptions = async () => {
+         try {
+            const res = await fetch("/api/subscriptions");
+            const data = await res.json();
+            if (Array.isArray(data)) {
+               setSubscriptions(data);
+            } else {
+               console.error("Unexpected response:", data);
+               setSubscriptions([]);
+            }
+         } catch (error) {
+            console.error(error);
+            setSubscriptions([]);
+         } finally {
+            setLoading(false);
+         }
+      };
+      fetchSubscriptions();
+   }, []);
+
+   const fetchAiSuggestions = async () => {
+      if (subscriptions.length === 0) return;
+      setAiLoading(true);
+      setAiError(null);
       try {
-        const res = await fetch("/api/subscriptions")
-        const data = await res.json()
-        setSubscriptions(data)
-      } catch (error) {
-        console.error(error)
+         const res = await fetch("/api/ai-suggestions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ subscriptions }),
+         });
+         const data = await res.json();
+         if (!res.ok || data.error) {
+            setAiError(data.error || "AI suggestions unavailable");
+            setAiSuggestions(null);
+            return;
+         }
+         setAiSuggestions(data);
+      } catch (err) {
+         setAiError(err.message || "AI suggestions failed");
+         setAiSuggestions(null);
       } finally {
-        setLoading(false)
+         setAiLoading(false);
       }
-    }
-    fetchSubscriptions()
-  }, [])
+   };
 
-  const active = subscriptions.filter((s) => s.status === "active")
+   useEffect(() => {
+      if (subscriptions.length > 0 && !aiSuggestions) {
+         fetchAiSuggestions();
+      }
+   }, [subscriptions]);
 
-  const totalMonthly = active.reduce((sum, sub) => {
-    return sum + (sub.billingCycle === "monthly" ? sub.amount : sub.amount / 12)
-  }, 0)
+   const active = subscriptions.filter((s) => s.status === "active");
 
-  const monthlySubs = active.filter((s) => s.billingCycle === "monthly")
+   if (loading) {
+      return <LoadingScreen label="Loading suggestions..." />;
+   }
 
-  const potentialYearlySavings = monthlySubs.reduce((sum, sub) => {
-    return sum + sub.amount * 12 * 0.2
-  }, 0)
+   return (
+      <PageShell>
+         <div className="max-w-4xl">
+            {/* Header */}
+            <div className="mb-10">
+               <p className="text-blue-300/80 text-xs uppercase tracking-[0.2em] mb-2">
+                  Optimize
+               </p>
+               <div className="flex items-end justify-between gap-4 mb-2">
+                  <h1 className="font-serif text-3xl lg:text-4xl text-white tracking-tight">
+                     AI Suggestions
+                  </h1>
+                  <Button
+                     variant="secondary"
+                     onClick={fetchAiSuggestions}
+                     loading={aiLoading}
+                     className="gap-2"
+                  >
+                     <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                     >
+                        <path
+                           strokeLinecap="round"
+                           strokeLinejoin="round"
+                           strokeWidth={2}
+                           d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
+                     </svg>
+                     Refresh AI
+                  </Button>
+               </div>
+               <p className="text-white/35 text-sm">
+                  Personalized recommendations to reduce your monthly spend
+               </p>
+            </div>
 
-  const categoryCount = active.reduce((acc, sub) => {
-    acc[sub.category] = (acc[sub.category] || 0) + 1
-    return acc
-  }, {})
+            {aiError && (
+               <Card className="mb-6 border-red-400/20">
+                  <CardContent className="p-4 flex items-center justify-between gap-4">
+                     <p className="text-red-300 text-sm">
+                        AI analysis failed: {aiError}. Showing rule-based tips
+                        instead.
+                     </p>
+                     <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={fetchAiSuggestions}
+                        loading={aiLoading}
+                     >
+                        Retry
+                     </Button>
+                  </CardContent>
+               </Card>
+            )}
 
-  const duplicateCategories = Object.entries(categoryCount)
-    .filter(([_, count]) => count > 1)
-    .map(([category, count]) => ({ category, count }))
+            {aiLoading && !aiSuggestions && (
+               <Card className="mb-6">
+                  <CardContent className="p-8 flex flex-col items-center gap-3">
+                     <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                     <p className="text-white/40 text-sm">
+                        Analyzing your subscriptions...
+                     </p>
+                  </CardContent>
+               </Card>
+            )}
 
-  const categorySpend = active.reduce((acc, sub) => {
-    const monthly = sub.billingCycle === "monthly" ? sub.amount : sub.amount / 12
-    acc[sub.category] = (acc[sub.category] || 0) + monthly
-    return acc
-  }, {})
+            {/* AI Suggestions */}
+            {aiSuggestions &&
+               aiSuggestions.suggestions &&
+               aiSuggestions.suggestions.length > 0 && (
+                  <>
+                     {/* Summary Cards */}
+                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        <SummaryCard
+                           label="Monthly Spend"
+                           value={formatCurrency(
+                              aiSuggestions.summary.totalMonthlySpend,
+                           )}
+                           color="red"
+                        />
+                        <SummaryCard
+                           label="Potential Monthly Savings"
+                           value={formatCurrency(
+                              aiSuggestions.summary.potentialMonthlySavings,
+                           )}
+                           color="green"
+                        />
+                        <SummaryCard
+                           label="Potential Yearly Savings"
+                           value={formatCurrency(
+                              aiSuggestions.summary.potentialYearlySavings,
+                           )}
+                           color="gold"
+                        />
+                        <SummaryCard
+                           label="Top Category"
+                           value={aiSuggestions.summary.topCategory || "N/A"}
+                           color="blue"
+                        />
+                     </div>
 
-  const mostExpensiveCategory = Object.entries(categorySpend)
-    .sort((a, b) => b[1] - a[1])[0]
+                     {/* Suggestions List */}
+                     <div className="space-y-4 mb-8">
+                        {aiSuggestions.suggestions.map((suggestion, index) => (
+                           <SuggestionCard
+                              key={index}
+                              suggestion={suggestion}
+                              index={index}
+                           />
+                        ))}
+                     </div>
+                  </>
+               )}
 
-  const userAlternatives = active
-    .map((sub) => {
-      const alternatives = FREE_ALTERNATIVES[sub.category] || []
-      const match = alternatives.find(
-        (alt) =>
-          sub.name.toLowerCase().includes(alt.paid.toLowerCase()) ||
-          alt.paid.toLowerCase().includes(sub.name.toLowerCase())
-      )
-      return match ? { sub, alternative: match } : null
-    })
-    .filter(Boolean)
+            {aiSuggestions &&
+               aiSuggestions.suggestions &&
+               aiSuggestions.suggestions.length === 0 && (
+                  <Card className="mb-6 border-green-400/20" variant="default">
+                     <CardContent className="p-8 text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center justify-center mx-auto mb-4 text-2xl">
+                           ✨
+                        </div>
+                        <h3 className="text-white font-medium mb-2">
+                           You're fully optimized!
+                        </h3>
+                        <p className="text-white/30 text-sm max-w-xs mx-auto">
+                           No savings opportunities found. Your subscriptions
+                           are well-managed.
+                        </p>
+                     </CardContent>
+                  </Card>
+               )}
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: "100vh", background: "#080b12", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p style={{ color: "rgba(255,255,255,0.3)", fontFamily: "'DM Sans', sans-serif" }}>
-          Analyzing your subscriptions...
-        </p>
+            {aiError && !aiLoading && !aiSuggestions && active.length > 0 && (
+               <RuleBasedSuggestions subscriptions={active} />
+            )}
+
+            {active.length === 0 && (
+               <Card className="p-12 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4 text-2xl">
+                     📦
+                  </div>
+                  <h3 className="text-white font-medium mb-2">
+                     No subscriptions to analyze
+                  </h3>
+                  <p className="text-white/30 text-sm mb-6 max-w-xs mx-auto">
+                     Add your subscriptions to get personalized money-saving
+                     suggestions.
+                  </p>
+                  <a href="/subscriptions">
+                     <Button>Add your first subscription</Button>
+                  </a>
+               </Card>
+            )}
+
+            {/* General Tips */}
+            <Card>
+               <div className="px-6 py-4 border-b border-white/5">
+                  <div className="flex items-center gap-3">
+                     <div className="w-10 h-10 rounded-xl bg-purple-400/10 border border-purple-400/20 flex items-center justify-center text-lg">
+                        💪
+                     </div>
+                     <h2 className="font-medium text-white">General Tips</h2>
+                  </div>
+               </div>
+               <CardContent className="p-6 pt-4">
+                  <div className="space-y-4">
+                     {GENERAL_TIPS.map((item, index) => (
+                        <div
+                           key={item.title}
+                           className="flex gap-4 p-4 bg-white/3 border border-white/5 rounded-xl animate-slide-up"
+                           style={{ animationDelay: `${index * 50}ms` }}
+                        >
+                           <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/8 flex items-center justify-center text-xl flex-shrink-0">
+                              {item.icon}
+                           </div>
+                           <div>
+                              <p className="text-white font-medium mb-1">
+                                 {item.title}
+                              </p>
+                              <p className="text-white/35 text-sm leading-relaxed">
+                                 {item.desc}
+                              </p>
+                           </div>
+                        </div>
+                     ))}
+                  </div>
+               </CardContent>
+            </Card>
+         </div>
+      </PageShell>
+   );
+}
+
+function SummaryCard({ label, value, color }) {
+   const colors = {
+      red: "from-red-500/20",
+      green: "from-emerald-500/20",
+      gold: "from-amber-500/20",
+      blue: "from-blue-500/20",
+   };
+   return (
+      <div className={`rounded-2xl border border-white/8 bg-gradient-to-br ${colors[color]} to-transparent p-4 animate-slide-up`}>
+         <p className="text-white/40 text-xs uppercase tracking-wider">{label}</p>
+         <p className="font-serif text-xl text-white mt-2">{value}</p>
       </div>
-    )
-  }
+   );
+}
 
-  return (
-    <div style={{ minHeight: "100vh", background: "#080b12", fontFamily: "'DM Sans', sans-serif" }}>
-      <style>{styles}</style>
-      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "40px 32px" }}>
+function SuggestionCard({ suggestion, index }) {
+   const priorityColors = {
+      high: "border-red-400/30 bg-red-500/5",
+      medium: "border-yellow-400/30 bg-yellow-500/5",
+      low: "border-blue-400/30 bg-blue-500/5",
+   };
+   const priorityIcons = { high: "🔴", medium: "🟡", low: "🔵" };
+   const typeIcons = {
+      duplicate: "🔄",
+      yearly_savings: "📅",
+      free_alternative: "🆓",
+      unused: "💤",
+      price_alert: "📈",
+      bundle_opportunity: "📦",
+   };
 
-        {/* Header */}
-        <div style={{ marginBottom: "40px" }}>
-          <h1 style={{
-            fontFamily: "'DM Serif Display', serif",
-            fontSize: "32px", color: "white",
-            letterSpacing: "-0.5px", marginBottom: "6px"
-          }}>
-            Suggestions
-          </h1>
-          <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "15px" }}>
-            Personalized tips to reduce your subscription costs
-          </p>
-        </div>
-
-        {/* Savings Summary Banner */}
-        <div style={{
-          background: "linear-gradient(135deg, rgba(37,99,235,0.15), rgba(79,70,229,0.15))",
-          border: "1px solid rgba(59,130,246,0.2)",
-          borderRadius: "16px",
-          padding: "28px",
-          marginBottom: "24px",
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: "24px"
-        }}>
-          <div>
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "12px", fontWeight: "500",
-              textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>
-              Potential Yearly Savings
-            </p>
-            <p style={{ color: "#60a5fa", fontSize: "32px", fontWeight: "700", letterSpacing: "-1px" }}>
-              {formatCurrency(potentialYearlySavings)}
-            </p>
-            <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "12px", marginTop: "4px" }}>
-              by switching to yearly plans
-            </p>
-          </div>
-          <div>
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "12px", fontWeight: "500",
-              textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>
-              Potential Monthly Savings
-            </p>
-            <p style={{ color: "#a78bfa", fontSize: "32px", fontWeight: "700", letterSpacing: "-1px" }}>
-              {formatCurrency(totalMonthly * 0.3)}
-            </p>
-            <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "12px", marginTop: "4px" }}>
-              by cancelling unused subs
-            </p>
-          </div>
-        </div>
-
-        {/* Duplicate Categories */}
-        {duplicateCategories.length > 0 && (
-          <div className="suggestion-card" style={{ borderColor: "rgba(251,191,36,0.15)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-              <span style={{
-                background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.2)",
-                borderRadius: "8px", padding: "6px 10px", fontSize: "16px"
-              }}>⚠️</span>
-              <h2 style={{ color: "white", fontSize: "16px", fontWeight: "600" }}>
-                Overlapping Subscriptions
-              </h2>
-            </div>
-            <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "14px", marginBottom: "20px", lineHeight: "1.6" }}>
-              You have multiple subscriptions in the same category. Consider keeping only the one you use most.
-            </p>
-            {duplicateCategories.map(({ category }) => {
-              const subs = active.filter((s) => s.category === category)
-              return (
-                <div key={category} style={{
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  borderRadius: "12px", padding: "16px", marginBottom: "10px"
-                }}>
-                  <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "12px", fontWeight: "600",
-                    textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "10px" }}>
-                    {category}
+   return (
+      <Card
+         variant="default"
+         className={`p-5 relative overflow-hidden animate-slide-up ${priorityColors[suggestion.priority] || ""}`}
+      style={{ animationDelay: `${index * 70}ms` }}
+      >
+         <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2" />
+         <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="flex items-start gap-4">
+               <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+                  style={{
+                     backgroundColor: priorityColors[
+                        suggestion.priority
+                     ].includes("red")
+                        ? "rgba(239,68,68,0.1)"
+                        : priorityColors[suggestion.priority].includes("yellow")
+                          ? "rgba(234,179,8,0.1)"
+                          : "rgba(59,130,246,0.1)",
+                  }}
+               >
+                  {typeIcons[suggestion.type] || "💡"}
+               </div>
+               <div>
+                  <div className="flex items-center gap-3 mb-2">
+                     <h3 className="text-white font-semibold text-lg">
+                        {suggestion.title}
+                     </h3>
+                     <Badge
+                        variant={
+                           suggestion.priority === "high"
+                              ? "error"
+                              : suggestion.priority === "medium"
+                                ? "warning"
+                                : "info"
+                        }
+                        className="text-xs"
+                     >
+                        {(suggestion.priority || "medium").toUpperCase()}
+                     </Badge>
+                  </div>
+                  <p className="text-white/70 text-sm leading-relaxed mb-3">
+                     {suggestion.description}
                   </p>
-                  <div style={{ display: "flex", flexWrap: "wrap" }}>
-                    {subs.map((sub) => (
-                      <span key={sub.id} className="duplicate-tag">
-                        {sub.name} · {formatCurrency(sub.amount)}
-                      </span>
-                    ))}
+                  <div className="flex flex-wrap gap-2">
+                     {(suggestion.actionItems || []).map((action, i) => (
+                        <Badge
+                           key={i}
+                           variant="primary"
+                           className="text-xs gap-1"
+                           style={{
+                              backgroundColor: "rgba(59,130,246,0.15)",
+                              borderColor: "rgba(59,130,246,0.3)",
+                           }}
+                        >
+                           {action}
+                        </Badge>
+                     ))}
                   </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Switch to Yearly */}
-        {monthlySubs.length > 0 && (
-          <div className="suggestion-card" style={{ borderColor: "rgba(34,197,94,0.15)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-              <span style={{
-                background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)",
-                borderRadius: "8px", padding: "6px 10px", fontSize: "16px"
-              }}>📅</span>
-              <h2 style={{ color: "white", fontSize: "16px", fontWeight: "600" }}>
-                Switch to Yearly Plans
-              </h2>
+               </div>
             </div>
-            <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "14px", marginBottom: "20px", lineHeight: "1.6" }}>
-              Most services offer ~20% discount on yearly plans. These monthly subscriptions could save you money:
+            <div className="flex flex-col items-end gap-1 text-right">
+               {suggestion.potentialSavings > 0 && (
+                  <>
+                     <p className="text-green-400 font-bold text-lg">
+                        Save {formatCurrency(suggestion.potentialSavings)}
+                     </p>
+                     <p className="text-white/30 text-xs">
+                        per {suggestion.savingsPeriod}
+                     </p>
+                  </>
+               )}
+               {suggestion.affectedSubscriptions &&
+                  suggestion.affectedSubscriptions.length > 0 && (
+                     <p className="text-white/30 text-xs max-w-xs">
+                        Affects: {suggestion.affectedSubscriptions.join(", ")}
+                     </p>
+                  )}
+            </div>
+         </div>
+      </Card>
+   );
+}
+
+function RuleBasedSuggestions({ subscriptions }) {
+   const active = subscriptions.filter((s) => s.status === "active");
+   const suggestions = [];
+
+   // Duplicate categories
+   const categoryCount = {};
+   active.forEach((s) => {
+      categoryCount[s.category] = (categoryCount[s.category] || 0) + 1;
+   });
+   Object.entries(categoryCount)
+      .filter(([_, count]) => count > 1)
+      .forEach(([category, count]) => {
+         const subs = active.filter((s) => s.category === category);
+         const monthlyTotal = subs.reduce(
+            (sum, s) =>
+               sum + (s.billingCycle === "monthly" ? s.amount : s.amount / 12),
+            0,
+         );
+         suggestions.push({
+            type: "duplicate",
+            title: `Multiple ${category} Subscriptions`,
+            description: `You have ${count} active ${category} subscriptions costing ${formatCurrency(monthlyTotal)}/month. Consider keeping only the most used one.`,
+            potentialSavings: monthlyTotal * 0.5,
+            savingsPeriod: "monthly",
+            priority: "high",
+            actionItems: [
+               "Review usage of each service",
+               "Cancel the least used",
+               "Consider family sharing",
+            ],
+            affectedSubscriptions: subs.map((s) => s.name),
+         });
+      });
+
+   // Yearly savings
+   const monthlySubs = active.filter((s) => s.billingCycle === "monthly");
+   if (monthlySubs.length > 0) {
+      const yearlySavings = monthlySubs.reduce(
+         (sum, s) => sum + s.amount * 12 * 0.2,
+         0,
+      );
+      suggestions.push({
+         type: "yearly_savings",
+         title: "Switch to Yearly Plans",
+         description: `${monthlySubs.length} monthly subscriptions could save ~20% by switching to yearly billing.`,
+         potentialSavings: yearlySavings,
+         savingsPeriod: "yearly",
+         priority: "high",
+         actionItems: [
+            "Check yearly pricing for each",
+            "Switch high-cost monthly plans first",
+         ],
+         affectedSubscriptions: monthlySubs.map((s) => s.name),
+      });
+   }
+
+   // Unused (old subscriptions)
+   const oldSubs = active.filter((s) => {
+      const start = new Date(s.startDate);
+      const monthsSinceStart =
+         (Date.now() - start.getTime()) / (1000 * 60 * 60 * 24 * 30);
+      return monthsSinceStart > 6;
+   });
+   if (oldSubs.length > 0) {
+      suggestions.push({
+         type: "unused",
+         title: "Review Long-running Subscriptions",
+         description: `${oldSubs.length} subscriptions active for 6+ months. Verify you still use them regularly.`,
+         potentialSavings:
+            oldSubs.reduce(
+               (sum, s) =>
+                  sum +
+                  (s.billingCycle === "monthly" ? s.amount : s.amount / 12),
+               0,
+            ) * 0.3,
+         savingsPeriod: "monthly",
+         priority: "medium",
+         actionItems: [
+            "Check last usage date",
+            "Pause unused services",
+            "Set calendar reminders to review",
+         ],
+         affectedSubscriptions: oldSubs.map((s) => s.name),
+      });
+   }
+
+   if (suggestions.length === 0) {
+      return (
+         <Card className="p-8 text-center border-green-400/20">
+            <div className="w-16 h-16 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center justify-center mx-auto mb-4 text-2xl">
+               ✨
+            </div>
+            <h3 className="text-white font-medium mb-2">
+               No obvious savings found
+            </h3>
+            <p className="text-white/30 text-sm">
+               Your subscriptions look well-managed. Click "Refresh AI" for
+               deeper analysis.
             </p>
-            {monthlySubs.map((sub) => {
-              const currentYearly = sub.amount * 12
-              const discountedYearly = currentYearly * 0.8
-              const savings = currentYearly - discountedYearly
-              return (
-                <div key={sub.id} className="yearly-row">
-                  <div>
-                    <p style={{ color: "white", fontSize: "14px", fontWeight: "500", marginBottom: "3px" }}>
-                      {sub.name}
-                    </p>
-                    <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "12px" }}>
-                      {formatCurrency(sub.amount)}/mo → {formatCurrency(discountedYearly)}/yr (est.)
-                    </p>
-                  </div>
-                  <div style={{
-                    background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)",
-                    borderRadius: "8px", padding: "6px 14px", textAlign: "center"
-                  }}>
-                    <p style={{ color: "#4ade80", fontSize: "13px", fontWeight: "600" }}>
-                      Save {formatCurrency(savings)}/yr
-                    </p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+         </Card>
+      );
+   }
 
-        {/* Highest Spending Category */}
-        {mostExpensiveCategory && (
-          <div className="suggestion-card" style={{ borderColor: "rgba(239,68,68,0.15)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-              <span style={{
-                background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)",
-                borderRadius: "8px", padding: "6px 10px", fontSize: "16px"
-              }}>🔥</span>
-              <h2 style={{ color: "white", fontSize: "16px", fontWeight: "600" }}>
-                Highest Spending Category
-              </h2>
-            </div>
-            <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "14px", lineHeight: "1.7" }}>
-              You spend the most on{" "}
-              <span style={{ color: "white", fontWeight: "600" }}>{mostExpensiveCategory[0]}</span>{" "}
-              at{" "}
-              <span style={{ color: "#f87171", fontWeight: "600" }}>
-                {formatCurrency(mostExpensiveCategory[1])}/month
-              </span>
-              . Review these subscriptions and consider keeping only the ones you use daily.
-            </p>
-          </div>
-        )}
-
-        {/* Free Alternatives */}
-        {userAlternatives.length > 0 && (
-          <div className="suggestion-card">
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-              <span style={{
-                background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.2)",
-                borderRadius: "8px", padding: "6px 10px", fontSize: "16px"
-              }}>🆓</span>
-              <h2 style={{ color: "white", fontSize: "16px", fontWeight: "600" }}>
-                Free Alternatives Available
-              </h2>
-            </div>
-            <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "14px", marginBottom: "20px" }}>
-              These subscriptions have solid free alternatives worth considering.
-            </p>
-            {userAlternatives.map(({ sub, alternative }) => (
-              <div key={sub.id} className="alt-row">
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                    <span style={{ color: "white", fontSize: "14px", fontWeight: "500" }}>{sub.name}</span>
-                    <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "13px" }}>→</span>
-                    <span style={{ color: "#4ade80", fontSize: "14px", fontWeight: "500" }}>
-                      {alternative.free}
-                    </span>
-                  </div>
-                  <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "12px" }}>
-                    {alternative.description}
-                  </p>
-                </div>
-                <div style={{
-                  background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.15)",
-                  borderRadius: "8px", padding: "6px 12px", marginLeft: "16px", whiteSpace: "nowrap"
-                }}>
-                  <p style={{ color: "#f87171", fontSize: "12px", fontWeight: "600" }}>
-                    -{formatCurrency(sub.amount)}/mo
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* General Tips */}
-        <div className="suggestion-card">
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
-            <span style={{
-              background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.2)",
-              borderRadius: "8px", padding: "6px 10px", fontSize: "16px"
-            }}>💪</span>
-            <h2 style={{ color: "white", fontSize: "16px", fontWeight: "600" }}>
-              General Tips
-            </h2>
-          </div>
-          {[
-            { icon: "🔍", title: "Do a monthly audit", desc: "Every month, review all your subscriptions and ask: did I use this enough to justify the cost?" },
-            { icon: "👨‍👩‍👧‍👦", title: "Share plans with family", desc: "Netflix, Spotify, iCloud and many others offer family plans that are significantly cheaper per person." },
-            { icon: "⏱️", title: "Use free trials wisely", desc: "Sign up for free trials when you need a service for a short project, then cancel before billing." },
-            { icon: "💬", title: "Negotiate or pause", desc: "Many services offer pause options or retention discounts if you contact them before cancelling." },
-            { icon: "🎓", title: "Check student discounts", desc: "Spotify, Apple Music, Adobe and many others offer 50%+ discounts for students." },
-          ].map((item) => (
-            <div key={item.title} className="tip-item">
-              <div style={{
-                width: "36px", height: "36px", borderRadius: "10px",
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                display: "flex", alignItems: "center",
-                justifyContent: "center", fontSize: "16px",
-                flexShrink: 0
-              }}>
-                {item.icon}
-              </div>
-              <div>
-                <p style={{ color: "white", fontSize: "14px", fontWeight: "600", marginBottom: "4px" }}>
-                  {item.title}
-                </p>
-                <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "13px", lineHeight: "1.6" }}>
-                  {item.desc}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
+   return (
+      <div className="space-y-4 mb-8">
+         <p className="text-white/40 text-sm mb-4">
+            Rule-based analysis (click Refresh AI for smarter suggestions):
+         </p>
+         {suggestions.map((s, i) => (
+            <SuggestionCard key={i} suggestion={s} index={i} />
+         ))}
       </div>
-    </div>
-  )
+   );
 }

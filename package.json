@@ -4,14 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
+    "@next/swc-darwin-arm64": "^16.3.5",
     "autoprefixer": "^10.4.24",
     "bcryptjs": "^3.0.3",
+    "firebase-admin": "^14.4.0",
+    "groq-sdk": "^1.6.0",
     "next": "16.1.6",
     "next-auth": "^4.24.13",
     "postcss": "^8.5.6",
@@ -24,7 +26,6 @@
     "@types/bcryptjs": "^2.4.6",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
-    "prisma": "^5.22.0",
     "tailwindcss": "^4.2.0"
   }
 }
