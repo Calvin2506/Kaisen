@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatCurrency, getDaysUntilRenewal } from "@/lib/helpers";
 import { Card, Badge, Modal, Button, Input, Select, Textarea } from "@/components/ui";
 import PageShell from "@/components/PageShell";
+import PlatformIcon from "@/components/PlatformIcon";
 import {
    CATALOG_PLATFORMS,
    startingMonthlyPrice,
@@ -73,6 +74,7 @@ export default function SubscriptionsPage() {
    const [errors, setErrors] = useState({});
    const [platformSearch, setPlatformSearch] = useState("");
    const [activeCategory, setActiveCategory] = useState("All");
+   const planPanelRef = useRef(null);
 
    const fetchSubscriptions = async () => {
       const res = await fetch("/api/subscriptions");
@@ -83,6 +85,12 @@ export default function SubscriptionsPage() {
    useEffect(() => {
       fetchSubscriptions();
    }, []);
+
+   useEffect(() => {
+      if (selectedPlatform) {
+         planPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+   }, [selectedPlatform]);
 
    const resetForm = () => {
       setFormData({
@@ -186,6 +194,23 @@ export default function SubscriptionsPage() {
       setSubscriptions((prev) => prev.filter((sub) => sub.id !== id));
    };
 
+   const featuredPlatforms = useMemo(
+      () =>
+         [
+            "netflix",
+            "disney-hotstar",
+            "amazon-prime",
+            "youtube-premium",
+            "spotify",
+            "jio-cinema",
+            "apple-music",
+            "sony-liv",
+         ]
+            .map((id) => CATALOG_PLATFORMS.find((p) => p.id === id))
+            .filter(Boolean),
+      [],
+   );
+
    const catalogCategories = useMemo(() => {
       const set = new Set(CATALOG_PLATFORMS.map((p) => p.category));
       return ["All", ...Array.from(set)];
@@ -251,84 +276,132 @@ export default function SubscriptionsPage() {
                />
             </div>
 
-            <section className="mb-12">
-               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
-                  <div>
-                     <h2 className="text-white text-lg font-medium">Add from catalog</h2>
-                     <p className="text-white/35 text-sm">
-                        Tap a platform, pick a plan, and start tracking.
-                     </p>
+            <section className="mb-14">
+               <div className="rounded-[28px] border border-white/8 bg-white/[0.03] p-5 md:p-7">
+                  <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 mb-7">
+                     <div>
+                        <p className="text-blue-300/80 text-xs uppercase tracking-[0.2em] mb-2">
+                           Catalog
+                        </p>
+                        <h2 className="text-white text-xl font-medium">Choose a service</h2>
+                        <p className="text-white/40 text-sm mt-1">
+                           Pick a brand, select a plan, and start tracking.
+                        </p>
+                     </div>
+                     <div className="relative w-full lg:max-w-sm">
+                        <svg
+                           className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30"
+                           fill="none"
+                           viewBox="0 0 24 24"
+                           stroke="currentColor"
+                        >
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                        </svg>
+                        <input
+                           value={platformSearch}
+                           onChange={(e) => setPlatformSearch(e.target.value)}
+                           placeholder="Search Netflix, Spotify, Prime..."
+                           className="input-base pl-11 h-12 rounded-2xl"
+                        />
+                     </div>
                   </div>
-                  <div className="relative w-full md:max-w-sm">
-                     <svg
-                        className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                     >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
-                     </svg>
-                     <input
-                        value={platformSearch}
-                        onChange={(e) => setPlatformSearch(e.target.value)}
-                        placeholder="Search Netflix, Spotify, iCloud..."
-                        className="input-base pl-11 h-11"
-                     />
-                  </div>
-               </div>
 
-               <div className="flex gap-2 overflow-x-auto pb-3 mb-5 scrollbar-thin">
-                  {catalogCategories.map((category) => {
-                     const selected = activeCategory === category;
-                     return (
+                  {!platformSearch && activeCategory === "All" && (
+                     <div className="mb-8">
+                        <p className="text-white/40 text-xs uppercase tracking-[0.18em] mb-4">
+                           Popular
+                        </p>
+                        <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
+                           {featuredPlatforms.map((platform) => {
+                              const selected = selectedPlatform?.id === platform.id;
+                              return (
+                                 <button
+                                    key={platform.id}
+                                    type="button"
+                                    onClick={() => handlePlatformSelect(platform)}
+                                    className={`shrink-0 w-[104px] flex flex-col items-center gap-3 p-3 rounded-3xl transition-all duration-200 ${
+                                       selected
+                                          ? "bg-white/10 ring-2 ring-white/30"
+                                          : "hover:bg-white/5"
+                                    }`}
+                                 >
+                                    <PlatformIcon platform={platform} size="lg" />
+                                    <span className="text-white/80 text-xs font-medium text-center leading-tight">
+                                       {platform.name.replace(" Premium", "").replace(" Video", "")}
+                                    </span>
+                                 </button>
+                              );
+                           })}
+                        </div>
+                     </div>
+                  )}
+
+                  <div className="flex gap-2 overflow-x-auto pb-4 mb-5 scrollbar-thin">
+                     {catalogCategories.map((category) => {
+                        const selected = activeCategory === category;
+                        return (
+                           <button
+                              key={category}
+                              onClick={() => setActiveCategory(category)}
+                              className={`whitespace-nowrap px-4 py-2 rounded-full text-sm transition-all ${
+                                 selected
+                                    ? "bg-white text-slate-900 font-medium"
+                                    : "bg-white/5 text-white/50 hover:text-white hover:bg-white/10 border border-white/8"
+                              }`}
+                           >
+                              {category}
+                           </button>
+                        );
+                     })}
+                  </div>
+
+                  {filteredPlatforms.length === 0 ? (
+                     <div className="py-12 text-center text-white/45">
+                        No services match that search.
+                     </div>
+                  ) : (
+                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                        {filteredPlatforms.map((platform) => (
+                           <PlatformCard
+                              key={platform.id}
+                              platform={platform}
+                              isSelected={selectedPlatform?.id === platform.id}
+                              onClick={() => handlePlatformSelect(platform)}
+                           />
+                        ))}
                         <button
-                           key={category}
-                           onClick={() => setActiveCategory(category)}
-                           className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm transition-all ${
-                              selected
-                                 ? "bg-white text-slate-900 font-medium"
-                                 : "bg-white/5 text-white/50 hover:text-white hover:bg-white/10 border border-white/8"
+                           type="button"
+                           onClick={() => handlePlatformSelect(MANUAL_PLATFORM)}
+                           className={`flex flex-col items-center text-center p-5 rounded-3xl border border-dashed transition-all ${
+                              selectedPlatform?.id === "manual"
+                                 ? "border-white/30 bg-white/8"
+                                 : "border-white/12 bg-transparent hover:bg-white/5"
                            }`}
                         >
-                           {category}
+                           <PlatformIcon platform={MANUAL_PLATFORM} size="md" />
+                           <p className="text-white font-medium mt-3 text-sm">Custom</p>
+                           <p className="text-white/35 text-xs mt-1">Add any service</p>
                         </button>
-                     );
-                  })}
-               </div>
+                     </div>
+                  )}
 
-               {filteredPlatforms.length === 0 ? (
-                  <Card className="p-10 text-center">
-                     <p className="text-white/50">No platforms match that search.</p>
-                  </Card>
-               ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                     {filteredPlatforms.map((platform) => (
-                        <PlatformCard
-                           key={platform.id}
-                           platform={platform}
-                           isSelected={selectedPlatform?.id === platform.id}
-                           onClick={() => handlePlatformSelect(platform)}
+                  {selectedPlatform && (
+                     <div ref={planPanelRef} className="mt-7">
+                        <PlanSelector
+                           platform={selectedPlatform}
+                           selectedPlan={selectedPlan}
+                           onPlanSelect={handlePlanSelect}
+                           formData={formData}
+                           setFormData={setFormData}
+                           errors={errors}
+                           onSubmit={handleSubmit}
+                           loading={loading}
+                           editing={editing}
+                           onClose={resetForm}
                         />
-                     ))}
-                  </div>
-               )}
-
-               {selectedPlatform && (
-                  <div className="mt-6">
-                     <PlanSelector
-                        platform={selectedPlatform}
-                        selectedPlan={selectedPlan}
-                        onPlanSelect={handlePlanSelect}
-                        formData={formData}
-                        setFormData={setFormData}
-                        errors={errors}
-                        onSubmit={handleSubmit}
-                        loading={loading}
-                        editing={editing}
-                        onClose={resetForm}
-                     />
-                  </div>
-               )}
+                     </div>
+                  )}
+               </div>
             </section>
 
             <section>
@@ -476,39 +549,20 @@ function PlatformCard({ platform, isSelected, onClick }) {
       <button
          type="button"
          onClick={onClick}
-         className={`text-left rounded-2xl p-4 border transition-all duration-200 group ${
+         className={`flex flex-col items-center text-center p-5 rounded-3xl border transition-all duration-200 ${
             isSelected
-               ? "border-white/20 bg-white/8 shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
-               : "border-white/8 bg-white/[0.03] hover:border-white/15 hover:bg-white/[0.06]"
+               ? "border-white/25 bg-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.35)] scale-[1.02]"
+               : "border-white/8 bg-white/[0.03] hover:border-white/16 hover:bg-white/[0.07] hover:-translate-y-1"
          }`}
       >
-         <div
-            className="h-1 w-12 rounded-full mb-4"
-            style={{ backgroundColor: platform.color }}
-         />
-         <div className="flex items-start justify-between gap-3">
-            <div
-               className="w-11 h-11 rounded-xl flex items-center justify-center text-xl border border-white/10"
-               style={{ backgroundColor: `${platform.color}22` }}
-            >
-               {platform.logo}
-            </div>
-            {isSelected && (
-               <span className="text-[11px] uppercase tracking-wide text-blue-300">
-                  Selected
-               </span>
-            )}
-         </div>
-         <p className="text-white font-medium mt-4 truncate">{platform.name}</p>
-         <p className="text-white/35 text-xs mt-1">{platform.category}</p>
-         <div className="mt-4 flex items-center justify-between text-sm">
-            <span className="text-white/80">
-               {fromPrice != null ? `From ${formatCurrency(fromPrice)}/mo` : "Custom"}
-            </span>
-            <span className="text-white/30 text-xs">
-               {platform.plans.length} plan{platform.plans.length === 1 ? "" : "s"}
-            </span>
-         </div>
+         <PlatformIcon platform={platform} size="lg" />
+         <p className="text-white font-medium mt-4 text-sm leading-tight line-clamp-2 min-h-[2.5rem]">
+            {platform.name}
+         </p>
+         <p className="text-white/40 text-[11px] mt-1">{platform.category}</p>
+         <p className="text-white/80 text-xs mt-3">
+            {fromPrice != null ? `From ${formatCurrency(fromPrice)}/mo` : "Custom"}
+         </p>
       </button>
    );
 }
@@ -531,12 +585,7 @@ function PlanSelector({
       <Card className="p-6">
          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-3">
-               <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl border border-white/10"
-                  style={{ backgroundColor: `${platform.color}22` }}
-               >
-                  {platform.logo}
-               </div>
+               <PlatformIcon platform={platform} size="md" />
                <div>
                   <h3 className="text-white font-medium">
                      {isManual ? "Add a custom service" : `Choose a ${platform.name} plan`}
@@ -733,12 +782,7 @@ function TrackedCard({ subscription, onEdit, onDelete }) {
          />
          <div className="flex items-start justify-between gap-4 pl-2">
             <div className="flex items-center gap-3 min-w-0">
-               <div
-                  className="w-11 h-11 rounded-xl flex items-center justify-center text-lg border border-white/10 shrink-0"
-                  style={{ backgroundColor: `${platform?.color || "#3b82f6"}22` }}
-               >
-                  {platform?.logo || "◈"}
-               </div>
+               <PlatformIcon platform={platform || { id: "manual", color: "#3b82f6" }} size="sm" />
                <div className="min-w-0">
                   <h3 className="text-white font-medium truncate">{subscription.name}</h3>
                   <div className="flex items-center gap-2 mt-1">

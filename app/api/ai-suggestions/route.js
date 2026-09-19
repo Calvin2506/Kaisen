@@ -1,5 +1,10 @@
 import Groq from "groq-sdk";
 import { CATALOG_PLATFORMS } from "@/lib/ott-platforms-india";
+import {
+  buildCarrierBundles,
+  buildFreeAlternatives,
+  CARRIER_BUNDLES,
+} from "@/lib/savings-options";
 
 const GROQ_MODELS = [
   "openai/gpt-oss-20b",
@@ -13,14 +18,36 @@ Return ONLY valid JSON in this exact format:
 {
   "suggestions": [
     {
-      "type": "duplicate" | "yearly_savings" | "free_alternative" | "unused" | "price_alert" | "bundle_opportunity",
+      "type": "duplicate" | "yearly_savings" | "unused" | "price_alert" | "bundle_opportunity",
       "title": "Short catchy title",
       "description": "Detailed explanation with numbers",
       "potentialSavings": number,
       "savingsPeriod": "monthly" | "yearly",
       "priority": "high" | "medium" | "low",
       "actionItems": ["Specific action 1", "Specific action 2"],
-      "affectedSubscriptions": ["subscription name 1", "subscription name 2"]
+      "affectedSubscriptions": ["subscription name 1"]
+    }
+  ],
+  "freeAlternatives": [
+    {
+      "forSubscription": "Netflix",
+      "name": "YouTube free",
+      "reason": "Why this free option can replace or reduce that paid plan",
+      "url": "https://youtube.com",
+      "potentialSavings": number
+    }
+  ],
+  "carrierBundles": [
+    {
+      "carrier": "Airtel",
+      "planName": "₹598 entertainment recharge",
+      "price": 598,
+      "validityDays": 28,
+      "includes": ["Netflix Basic", "JioHotstar", "ZEE5"],
+      "coversSubscriptions": ["Netflix"],
+      "description": "How this recharge pack replaces paid apps",
+      "claim": "Claim in the Airtel Thanks app",
+      "potentialSavings": number
     }
   ],
   "summary": {
@@ -34,15 +61,16 @@ Return ONLY valid JSON in this exact format:
 }
 
 Rules:
-- Only suggest REAL alternatives from the provided catalog
+- Always search for real free alternatives for each paid streaming/music app
+- Always consider Airtel, Jio, and Vi recharge packs that bundle those apps
+- Do not invent fake pack prices; prefer the packs listed in the user prompt
 - Calculate savings accurately using catalog prices
 - Flag duplicates in the same category
 - Suggest yearly plans when monthly is used and yearly is cheaper
-- Identify unused subscriptions (paused/cancelled or old start date)
+- Identify unused subscriptions
 - Be specific with currency amounts
-- Keep suggestions practical and actionable
-- Prioritize high-impact savings first
-- If there are no savings ideas, return an empty suggestions array and still fill summary`;
+- Keep suggestions practical
+- Put free options only in freeAlternatives, and recharge packs only in carrierBundles`;
 
 function monthlyAmount(sub) {
   const amount = Number(sub.amount) || 0;
@@ -139,13 +167,65 @@ function normalizePayload(parsed, activeSubs) {
   }));
 
   return {
-    suggestions,
+    suggestions: suggestions.filter(
+      (item) => item.type !== "free_alternative",
+    ),
     summary: {
       ...emptySummary(),
       ...(parsed.summary || {}),
       ...summarize(activeSubs, suggestions),
     },
+    freeAlternatives: mergeFreeAlternatives(activeSubs, parsed.freeAlternatives),
+    carrierBundles: mergeCarrierBundles(activeSubs, parsed.carrierBundles),
   };
+}
+
+function mergeFreeAlternatives(activeSubs, extra = []) {
+  const base = buildFreeAlternatives(activeSubs);
+  const seen = new Set(base.map((item) => `${item.forSubscription}:${item.name}`));
+  for (const item of extra || []) {
+    const key = `${item.forSubscription}:${item.name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    base.push({
+      forSubscription: item.forSubscription || "Subscription",
+      name: item.name,
+      reason: item.reason || "",
+      url: item.url || "",
+      icon: "youtube-premium",
+      potentialSavings: Number(item.potentialSavings) || 0,
+    });
+  }
+  return base;
+}
+
+function mergeCarrierBundles(activeSubs, extra = []) {
+  const base = buildCarrierBundles(activeSubs);
+  const seen = new Set(base.map((item) => `${item.carrier}:${item.planName}`));
+  for (const item of extra || []) {
+    const key = `${item.carrier}:${item.planName}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    base.push({
+      carrier: item.carrier || "Carrier",
+      planName: item.planName || "Bundle pack",
+      price: Number(item.price) || 0,
+      validityDays: Number(item.validityDays) || 28,
+      data: item.data || "",
+      includes: item.includes || [],
+      coversSubscriptions: item.coversSubscriptions || [],
+      claim: item.claim || "",
+      url: item.url || "",
+      icon: String(item.carrier || "").toLowerCase().includes("jio")
+        ? "jio"
+        : String(item.carrier || "").toLowerCase().includes("vi")
+          ? "vi"
+          : "airtel",
+      potentialSavings: Number(item.potentialSavings) || 0,
+      description: item.description || "",
+    });
+  }
+  return base;
 }
 
 function findPlatform(name) {
@@ -319,7 +399,20 @@ ${JSON.stringify(subsForAI, null, 2)}
 Service catalog (use these prices):
 ${JSON.stringify(catalogSnapshot(), null, 2)}
 
-Use the catalog for realistic plan comparisons and keep amounts in the user's currency.`,
+Known recharge packs that bundle streaming apps:
+${JSON.stringify(
+  CARRIER_BUNDLES.map((pack) => ({
+    carrier: pack.carrier,
+    planName: pack.planName,
+    price: pack.price,
+    validityDays: pack.validityDays,
+    includes: pack.includesLabels,
+  })),
+  null,
+  2,
+)}
+
+Always fill freeAlternatives and carrierBundles. Use the known packs above for prices. Keep amounts in the user's currency.`,
     },
   ];
 }
@@ -333,7 +426,7 @@ async function generateWithGroq(groq, subsForAI) {
       const completion = await groq.chat.completions.create({
         model,
         temperature: 0.2,
-        max_completion_tokens: 2500,
+        max_completion_tokens: 3200,
         response_format: { type: "json_object" },
         messages,
       });
@@ -366,6 +459,8 @@ export async function POST(req) {
       return Response.json({
         suggestions: [],
         summary: emptySummary(),
+        freeAlternatives: [],
+        carrierBundles: [],
       });
     }
 

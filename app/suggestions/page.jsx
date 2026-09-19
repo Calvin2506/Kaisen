@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { formatCurrency } from "@/lib/helpers";
 import { Card, CardContent, Badge, Button } from "@/components/ui";
 import PageShell, { LoadingScreen } from "@/components/PageShell";
+import PlatformIcon from "@/components/PlatformIcon";
 
 const GENERAL_TIPS = [
    {
@@ -212,7 +213,9 @@ export default function Suggestions() {
 
             {aiSuggestions &&
                aiSuggestions.suggestions &&
-               aiSuggestions.suggestions.length === 0 && (
+               aiSuggestions.suggestions.length === 0 &&
+               !(aiSuggestions.freeAlternatives || []).length &&
+               !(aiSuggestions.carrierBundles || []).length && (
                   <Card className="mb-6 border-green-400/20" variant="default">
                      <CardContent className="p-8 text-center">
                         <div className="w-16 h-16 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center justify-center mx-auto mb-4 text-2xl">
@@ -249,6 +252,110 @@ export default function Suggestions() {
                      <Button>Add your first subscription</Button>
                   </a>
                </Card>
+            )}
+
+            {(aiSuggestions?.freeAlternatives || []).length > 0 && (
+               <section className="mb-8">
+                  <div className="mb-4">
+                     <p className="text-emerald-300/80 text-xs uppercase tracking-[0.18em] mb-1">
+                        No cost
+                     </p>
+                     <h2 className="text-white text-xl font-medium">Free alternatives</h2>
+                     <p className="text-white/40 text-sm mt-1">
+                        Options that can replace a paid plan if you do not need the extras.
+                     </p>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                     {aiSuggestions.freeAlternatives.map((item, index) => (
+                        <a
+                           key={`${item.forSubscription}-${item.name}-${index}`}
+                           href={item.url || "#"}
+                           target="_blank"
+                           rel="noreferrer"
+                           className="card-base p-4 flex gap-3 no-underline hover:-translate-y-0.5"
+                        >
+                           <PlatformIcon
+                              platform={{ id: item.icon || "youtube-premium", name: item.name }}
+                              size="sm"
+                           />
+                           <div className="min-w-0">
+                              <p className="text-white font-medium">{item.name}</p>
+                              <p className="text-white/40 text-xs mt-0.5">
+                                 Instead of {item.forSubscription}
+                              </p>
+                              <p className="text-white/55 text-sm mt-2 leading-relaxed">
+                                 {item.reason}
+                              </p>
+                              {item.potentialSavings > 0 && (
+                                 <p className="text-emerald-400 text-xs mt-2">
+                                    Could save {formatCurrency(item.potentialSavings)}/mo
+                                 </p>
+                              )}
+                           </div>
+                        </a>
+                     ))}
+                  </div>
+               </section>
+            )}
+
+            {(aiSuggestions?.carrierBundles || []).length > 0 && (
+               <section className="mb-8">
+                  <div className="mb-4">
+                     <p className="text-blue-300/80 text-xs uppercase tracking-[0.18em] mb-1">
+                        Recharge packs
+                     </p>
+                     <h2 className="text-white text-xl font-medium">Carrier bundles</h2>
+                     <p className="text-white/40 text-sm mt-1">
+                        Airtel, Jio, and Vi plans that already include apps you pay for separately.
+                     </p>
+                  </div>
+                  <div className="space-y-3">
+                     {aiSuggestions.carrierBundles.map((pack, index) => (
+                        <a
+                           key={`${pack.carrier}-${pack.planName}-${index}`}
+                           href={pack.url || "#"}
+                           target="_blank"
+                           rel="noreferrer"
+                           className="card-base p-5 block no-underline hover:-translate-y-0.5"
+                        >
+                           <div className="flex items-start gap-4">
+                              <PlatformIcon
+                                 platform={{ id: pack.icon || "airtel", name: pack.carrier }}
+                                 size="md"
+                              />
+                              <div className="flex-1 min-w-0">
+                                 <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-white font-medium">{pack.planName}</p>
+                                    <Badge variant="primary">{pack.carrier}</Badge>
+                                 </div>
+                                 <p className="text-white/50 text-sm mt-2">{pack.description}</p>
+                                 <div className="flex flex-wrap gap-2 mt-3">
+                                    {(pack.includes || []).map((label) => (
+                                       <Badge key={label} variant="neutral">
+                                          {label}
+                                       </Badge>
+                                    ))}
+                                 </div>
+                                 <p className="text-white/35 text-xs mt-3">
+                                    {pack.data ? `${pack.data} · ` : ""}
+                                    {pack.validityDays} days · {pack.claim}
+                                 </p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                 <p className="font-serif text-white text-xl">
+                                    {formatCurrency(pack.price)}
+                                 </p>
+                                 {pack.potentialSavings > 0 && (
+                                    <p className="text-emerald-400 text-xs mt-1">
+                                       Save {formatCurrency(pack.potentialSavings)}/mo
+                                    </p>
+                                 )}
+                              </div>
+                           </div>
+                        </a>
+                     ))}
+                  </div>
+               </section>
             )}
 
             {/* General Tips */}
