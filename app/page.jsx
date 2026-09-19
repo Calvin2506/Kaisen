@@ -1,311 +1,146 @@
-import { Yesteryear } from "next/font/google"
 import Link from "next/link"
+import { Button } from "@/components/ui"
+import PageShell from "@/components/PageShell"
+
+const FEATURES = [
+  {
+    title: "Smart dashboard",
+    desc: "Monthly spend, renewals, and category mix in one glance.",
+  },
+  {
+    title: "Service catalog",
+    desc: "Add streaming, software, and other services with clear plan prices.",
+  },
+  {
+    title: "Renewal radar",
+    desc: "See what’s due this week before the charge hits your card.",
+  },
+  {
+    title: "AI savings",
+    desc: "Get plan downgrades, yearly switches, and overlap alerts.",
+  },
+  {
+    title: "Clean analytics",
+    desc: "Understand which category is quietly eating your budget.",
+  },
+  {
+    title: "Private by default",
+    desc: "Your stack stays on your account. No social sharing, no noise.",
+  },
+]
 
 export default function Home() {
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif" }} className="min-h-screen bg-gray-950 overflow-x-hidden">
-
-      {/* Google Font */}
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap');
-        * { box-sizing: border-box; }
-        .hero-glow {
-          background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59,130,246,0.3), transparent);
-        }
-        .card-hover {
-          transition: transform 0.2s ease, border-color 0.2s ease;
-        }
-        .card-hover:hover {
-          transform: translateY(-4px);
-          border-color: rgba(59,130,246,0.5);
-        }
-        .gradient-text {
-          background: linear-gradient(135deg, #60a5fa, #a78bfa);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-        .badge {
-          background: rgba(59,130,246,0.1);
-          border: 1px solid rgba(59,130,246,0.3);
-          backdrop-filter: blur(10px);
-        }
-        .btn-primary {
-          background: linear-gradient(135deg, #2563eb, #4f46e5);
-          transition: opacity 0.2s ease, transform 0.2s ease;
-        }
-        .btn-primary:hover {
-          opacity: 0.9;
-          transform: translateY(-1px);
-        }
-        .btn-secondary {
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.1);
-          transition: background 0.2s ease;
-        }
-        .btn-secondary:hover {
-          background: rgba(255,255,255,0.1);
-        }
-        .feature-icon {
-          background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.2));
-          border: 1px solid rgba(59,130,246,0.2);
-        }
-        .section-divider {
-          background: linear-gradient(90deg, transparent, rgba(59,130,246,0.3), transparent);
-          height: 1px;
-        }
-      `}</style>
-
-      {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50" style={{
-        background: "rgba(3,7,18,0.8)",
-        backdropFilter: "blur(20px)",
-        borderBottom: "1px solid rgba(255,255,255,0.06)"
-      }}>
-        <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "0 24px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: "64px" }}>
-            <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: "22px", color: "white", letterSpacing: "-0.5px" }}>
-              ✦ Kaisen
-            </span>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <Link href="/auth/login" style={{
-                color: "rgba(255,255,255,0.6)",
-                textDecoration: "none",
-                fontSize: "14px",
-                fontWeight: "500",
-                padding: "8px 16px",
-                borderRadius: "8px",
-                transition: "color 0.2s"
-              }}>
-                Login
-              </Link>
-              <Link href="/auth/signup" className="btn-primary" style={{
-                color: "white",
-                textDecoration: "none",
-                fontSize: "14px",
-                fontWeight: "600",
-                padding: "10px 20px",
-                borderRadius: "10px",
-                display: "inline-block"
-              }}>
-                Get Started →
-              </Link>
-            </div>
+    <PageShell contained={false}>
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#07080d]/55 backdrop-blur-xl">
+        <div className="section-container flex items-center justify-between h-16">
+          <span className="font-serif text-xl text-white tracking-tight">✦ Kaisen</span>
+          <div className="flex items-center gap-3">
+            <Link href="/auth/login" className="btn-ghost text-sm hidden sm:inline-flex">
+              Login
+            </Link>
+            <Link href="/auth/signup">
+              <Button size="sm">Get started</Button>
+            </Link>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <div className="hero-glow" style={{ paddingTop: "160px", paddingBottom: "100px", textAlign: "center", padding: "160px 24px 100px" }}>
-        <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-          
-          <div className="badge" style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "6px 16px",
-            borderRadius: "100px",
-            fontSize: "13px",
-            color: "#93c5fd",
-            marginBottom: "32px"
-          }}>
-            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#3b82f6", display: "inline-block" }}></span>
-            Track • Analyze • Save
-          </div>
-
-          <h1 style={{
-            fontFamily: "'DM Serif Display', serif",
-            fontSize: "clamp(42px, 7vw, 76px)",
-            color: "white",
-            lineHeight: "1.1",
-            letterSpacing: "-2px",
-            marginBottom: "24px"
-          }}>
-            Stop Wasting Money on{" "}
-            <span className="gradient-text">Forgotten Subscriptions</span>
-          </h1>
-
-          <p style={{
-            fontSize: "clamp(16px, 2vw, 20px)",
-            color: "rgba(255,255,255,0.5)",
-            lineHeight: "1.7",
-            marginBottom: "48px",
-            maxWidth: "560px",
-            margin: "0 auto 48px"
-          }}>
-            Track all your subscriptions in one place, get renewal alerts before they hit, 
-            and discover smart ways to cut your monthly expenses.
-          </p>
-
-          <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
-            <Link href="/auth/signup" className="btn-primary" style={{
-              color: "white",
-              textDecoration: "none",
-              fontSize: "16px",
-              fontWeight: "600",
-              padding: "16px 32px",
-              borderRadius: "12px",
-              display: "inline-block"
-            }}>
-              Start for Free →
-            </Link>
-            <Link href="/auth/login" className="btn-secondary" style={{
-              color: "rgba(255,255,255,0.7)",
-              textDecoration: "none",
-              fontSize: "16px",
-              fontWeight: "500",
-              padding: "16px 32px",
-              borderRadius: "12px",
-              display: "inline-block"
-            }}>
-              Login
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Bar */}
-      <div style={{ maxWidth: "1100px", margin: "0 auto 80px", padding: "0 24px" }}>
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: "1px",
-          background: "rgba(255,255,255,0.06)",
-          borderRadius: "16px",
-          overflow: "hidden",
-          border: "1px solid rgba(255,255,255,0.06)"
-        }}>
-          {[
-            { value: "100%", label: "Free to use" },
-            { value: "∞", label: "Subscriptions to track" },
-            { value: "5min", label: "To get started" },
-            { value: "0", label: "Hidden fees" },
-          ].map((stat) => (
-            <div key={stat.label} style={{
-              padding: "32px 24px",
-              textAlign: "center",
-              background: "rgba(255,255,255,0.02)"
-            }}>
-              <p style={{
-                fontFamily: "'DM Serif Display', serif",
-                fontSize: "36px",
-                color: "white",
-                marginBottom: "4px"
-              }}>{stat.value}</p>
-              <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.4)" }}>{stat.label}</p>
+      <section className="relative pt-28 pb-16 lg:pt-36 lg:pb-24">
+        <div className="section-container grid lg:grid-cols-[1.05fr_0.95fr] gap-16 items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 mb-7 animate-fade-in">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-soft" />
+              <span className="text-xs uppercase tracking-[0.2em] text-white/60">Track. Analyze. Save.</span>
             </div>
-          ))}
-        </div>
-      </div>
+            <h1 className="font-serif text-white text-[clamp(2.7rem,7vw,5.4rem)] leading-[0.95] tracking-tight animate-slide-up drop-shadow-[0_12px_40px_rgba(0,0,0,0.55)]">
+              Keep every
+              <span className="block gradient-text">subscription honest.</span>
+            </h1>
+            <p className="mt-6 text-lg text-white/50 max-w-xl animate-slide-up stagger-2">
+              Track plans, catch renewals, and let AI show you where your stack can get cheaper.
+            </p>
+            <div className="mt-8 flex flex-col sm:flex-row gap-3 animate-slide-up stagger-3">
+              <Link href="/auth/signup">
+                <Button size="lg">Start free</Button>
+              </Link>
+              <Link href="/auth/login">
+                <Button variant="secondary" size="lg">I already have an account</Button>
+              </Link>
+            </div>
+            <div className="mt-10 flex flex-wrap gap-6 text-sm text-white/35 animate-slide-up stagger-4">
+              <span>No credit card</span>
+              <span className="text-white/15">/</span>
+              <span>Clear pricing</span>
+              <span className="text-white/15">/</span>
+              <span>AI suggestions</span>
+            </div>
+          </div>
 
-      {/* Features */}
-      <div style={{ maxWidth: "1100px", margin: "0 auto 100px", padding: "0 24px" }}>
-        <div style={{ textAlign: "center", marginBottom: "60px" }}>
-          <h2 style={{
-            fontFamily: "'DM Serif Display', serif",
-            fontSize: "clamp(32px, 5vw, 48px)",
-            color: "white",
-            letterSpacing: "-1px",
-            marginBottom: "16px"
-          }}>
-            Everything you need
-          </h2>
-          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "16px" }}>
-            Built to give you complete control over your subscription spending
-          </p>
-        </div>
-
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-          gap: "16px"
-        }}>
-          {[
-            { icon: "📊", title: "Smart Dashboard", desc: "See your total monthly and yearly spend at a glance with beautiful interactive charts." },
-            { icon: "🔔", title: "Renewal Alerts", desc: "Never get surprised by an auto-payment again. Know exactly when each subscription renews." },
-            { icon: "💡", title: "Cost Suggestions", desc: "Get personalized tips to reduce spending, spot duplicates, and find free alternatives." },
-            { icon: "📈", title: "Deep Analytics", desc: "Understand your spending patterns by category, billing cycle, and time period." },
-            { icon: "🗂️", title: "Smart Categories", desc: "Organize subscriptions by Entertainment, Productivity, Health, and more." },
-            { icon: "🔒", title: "Secure & Private", desc: "Your data is encrypted and private. Only you can see your subscriptions." },
-          ].map((feature) => (
-            <div key={feature.title} className="card-hover" style={{
-              background: "rgba(255,255,255,0.02)",
-              border: "1px solid rgba(255,255,255,0.07)",
-              borderRadius: "16px",
-              padding: "28px"
-            }}>
-              <div className="feature-icon" style={{
-                width: "48px",
-                height: "48px",
-                borderRadius: "12px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "22px",
-                marginBottom: "16px"
-              }}>
-                {feature.icon}
+          <div className="relative h-[420px] hidden md:block">
+            <div className="absolute left-8 top-8 w-72 rounded-3xl border border-white/10 bg-white/8 backdrop-blur-xl p-5 animate-float">
+              <p className="text-white/40 text-xs uppercase tracking-wider">Monthly stack</p>
+              <p className="font-serif text-4xl text-white mt-2">₹1,148</p>
+              <div className="mt-4 space-y-3">
+                {["Netflix Premium", "Spotify", "iCloud"].map((name, i) => (
+                  <div key={name} className="flex items-center justify-between text-sm">
+                    <span className="text-white/70">{name}</span>
+                    <span className="text-white">{["₹649", "₹119", "₹75"][i]}</span>
+                  </div>
+                ))}
               </div>
-              <h3 style={{
-                color: "white",
-                fontSize: "16px",
-                fontWeight: "600",
-                marginBottom: "8px"
-              }}>
-                {feature.title}
-              </h3>
-              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "14px", lineHeight: "1.6" }}>
-                {feature.desc}
-              </p>
             </div>
-          ))}
+            <div className="absolute right-4 bottom-10 w-64 rounded-3xl border border-emerald-400/20 bg-emerald-500/10 backdrop-blur-xl p-5 animate-float-slow">
+              <p className="text-emerald-300 text-xs uppercase tracking-wider">Potential save</p>
+              <p className="font-serif text-3xl text-white mt-2">₹740 /mo</p>
+              <p className="text-white/45 text-sm mt-3">Switch unused plans to yearly billing and drop extras you don’t use.</p>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Divider */}
-      <div className="section-divider" style={{ maxWidth: "600px", margin: "0 auto 80px" }} />
-
-      {/* CTA */}
-      <div style={{ textAlign: "center", padding: "0 24px 100px" }}>
-        <div style={{ maxWidth: "560px", margin: "0 auto" }}>
-          <h2 style={{
-            fontFamily: "'DM Serif Display', serif",
-            fontSize: "clamp(32px, 5vw, 48px)",
-            color: "white",
-            letterSpacing: "-1px",
-            marginBottom: "16px"
-          }}>
-            Ready to save money?
-          </h2>
-          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "16px", marginBottom: "40px" }}>
-            Join and start tracking your subscriptions today. Completely free.
-          </p>
-          <Link href="/auth/signup" className="btn-primary" style={{
-            color: "white",
-            textDecoration: "none",
-            fontSize: "16px",
-            fontWeight: "600",
-            padding: "16px 40px",
-            borderRadius: "12px",
-            display: "inline-block"
-          }}>
-            Get Started Free →
-          </Link>
+      <section className="pb-24">
+        <div className="section-container">
+          <div className="max-w-2xl mb-12">
+            <p className="text-blue-300/80 text-xs uppercase tracking-[0.2em] mb-3">Product</p>
+            <h2 className="font-serif text-white text-4xl tracking-tight">A calmer way to run your digital bills.</h2>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {FEATURES.map((feature, index) => (
+              <div
+                key={feature.title}
+                className="card-base p-6 animate-slide-up"
+                style={{ animationDelay: `${index * 70}ms` }}
+              >
+                <div className="w-8 h-px bg-gradient-to-r from-blue-400 to-violet-400 mb-5" />
+                <h3 className="text-white font-medium mb-2">{feature.title}</h3>
+                <p className="text-white/40 text-sm leading-relaxed">{feature.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Footer */}
-      <div style={{
-        borderTop: "1px solid rgba(255,255,255,0.06)",
-        padding: "24px",
-        textAlign: "center"
-      }}>
-        <p style={{ color: "rgba(255,255,255,0.2)", fontSize: "13px" }}>
-         © {new Date().getFullYear()} Kaisen. All rights reserved.
-        </p>
+      <section className="pb-24">
+        <div className="section-container">
+          <div className="rounded-[32px] border border-white/10 overflow-hidden relative px-8 py-16 lg:px-16 text-center">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-transparent to-violet-600/20" />
+            <div className="relative">
+              <h2 className="font-serif text-white text-4xl lg:text-5xl tracking-tight">Ready to see the leaks?</h2>
+              <p className="text-white/45 mt-4 mb-8">Add your subscriptions in a minute. Kaisen does the rest.</p>
+              <Link href="/auth/signup">
+                <Button size="lg">Create a free account</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      </div>
-
-    </div>
+      <footer className="border-t border-white/5 py-8">
+        <div className="section-container">
+          <p className="text-center text-white/25 text-sm">© {new Date().getFullYear()} Kaisen</p>
+        </div>
+      </footer>
+    </PageShell>
   )
 }

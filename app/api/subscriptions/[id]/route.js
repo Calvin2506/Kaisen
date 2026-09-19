@@ -1,57 +1,56 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import db from "@/lib/db"
 import { calculateNextPayDate } from "@/lib/helpers"
 
-// PUT update subscription
 export async function PUT(req, { params }) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const body = await req.json()
-    const { name, amount, currency, billingCycle, startDate, category, notes, website, status } = body
+    const nextPayDate = calculateNextPayDate(body.startDate, body.billingCycle)
 
-    const nextPayDate = calculateNextPayDate(startDate, billingCycle)
-
-    const subscription = await db.subscription.update({
-      where: { id: params.id },
+    const updated = await db.subscription.updateMany({
+      where: {
+        id: params.id,
+        userId: session.user.id,
+      },
       data: {
-        name,
-        amount: parseFloat(amount),
-        currency,
-        billingCycle,
-        startDate: new Date(startDate),
+        ...body,
+        amount: parseFloat(body.amount),
+        startDate: new Date(body.startDate),
         nextPayDate,
-        category,
-        notes: notes || null,
-        website: website || null,
-        status,
       },
     })
 
-    return NextResponse.json(subscription)
+    return NextResponse.json(updated)
   } catch (error) {
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
+    console.error(error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
 
-// DELETE subscription
 export async function DELETE(req, { params }) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    await db.subscription.delete({
-      where: { id: params.id },
+    await db.subscription.deleteMany({
+      where: {
+        id: params.id,
+        userId: session.user.id,
+      },
     })
 
-    return NextResponse.json({ message: "Deleted successfully" })
+    return NextResponse.json({ success: true })
   } catch (error) {
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
+    console.error(error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

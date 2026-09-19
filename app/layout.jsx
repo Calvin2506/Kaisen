@@ -1,9 +1,18 @@
-import { Inter } from "next/font/google"
+import { DM_Sans, DM_Serif_Display } from "next/font/google"
 import "./globals.css"
 import AuthSessionProvider from "@/components/SessionProvider"
 import NavbarWrapper from "@/components/NavbarWrapper"
 
-const inter = Inter({ subsets: ["latin"] })
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+})
+
+const dmSerif = DM_Serif_Display({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-dm-serif",
+})
 
 export const metadata = {
   title: "Kaisen",
@@ -13,7 +22,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={`${dmSans.variable} ${dmSerif.variable} font-sans antialiased`}>
         <AuthSessionProvider>
           <NavbarWrapper />
           {children}

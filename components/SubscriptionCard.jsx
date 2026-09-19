@@ -1,108 +1,102 @@
-import { getDaysUntilRenewal, formatCurrency } from "@/lib/helpers"
-
-const CATEGORY_COLORS = {
-  Entertainment: "bg-purple-500/20 text-purple-400",
-  Music: "bg-pink-500/20 text-pink-400",
-  Productivity: "bg-blue-500/20 text-blue-400",
-  "Health & Fitness": "bg-green-500/20 text-green-400",
-  Education: "bg-yellow-500/20 text-yellow-400",
-  "Cloud Storage": "bg-cyan-500/20 text-cyan-400",
-  Gaming: "bg-red-500/20 text-red-400",
-  News: "bg-orange-500/20 text-orange-400",
-  Shopping: "bg-indigo-500/20 text-indigo-400",
-  Other: "bg-gray-500/20 text-gray-400",
-}
+import { formatCurrency, getDaysUntilRenewal } from "@/lib/helpers"
 
 export default function SubscriptionCard({ subscription, onEdit, onDelete }) {
-  const daysUntil = getDaysUntilRenewal(subscription.nextPayDate)
-  const categoryColor = CATEGORY_COLORS[subscription.category] || CATEGORY_COLORS.Other
+  const daysLeft = getDaysUntilRenewal(subscription.nextPayDate)
 
-  const renewalColor =
-    daysUntil <= 3
+  const urgencyColor =
+    daysLeft <= 3
       ? "text-red-400"
-      : daysUntil <= 7
+      : daysLeft <= 7
       ? "text-yellow-400"
       : "text-green-400"
 
+  const urgencyDot =
+    daysLeft <= 3
+      ? "bg-red-400"
+      : daysLeft <= 7
+      ? "bg-yellow-400"
+      : "bg-green-400"
+
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-gray-700 transition-colors">
-      
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h3 className="text-white font-semibold text-lg">{subscription.name}</h3>
-          <span className={`text-xs px-2 py-1 rounded-full ${categoryColor}`}>
+    <div className="
+      group
+      bg-[#13161f] border border-white/8
+      rounded-2xl p-5
+      flex flex-col gap-4
+      hover:border-white/20 hover:bg-[#161925]
+      transition-all duration-200
+    ">
+
+      {/* ── TOP ROW: Name + Amount ─────────────────────── */}
+      <div className="flex justify-between items-start">
+        <div className="flex flex-col gap-2">
+          <h3 className="text-white font-semibold text-base leading-tight">
+            {subscription.name}
+          </h3>
+          <span className="
+            self-start text-xs px-2.5 py-0.5
+            bg-blue-500/15 text-blue-400
+            border border-blue-500/20
+            rounded-full
+          ">
             {subscription.category}
           </span>
         </div>
-        <div className="text-right">
-          <p className="text-white font-bold text-xl">
+
+        <div className="text-right shrink-0 ml-3">
+          <p className="text-white font-bold text-lg leading-tight">
             {formatCurrency(subscription.amount, subscription.currency)}
           </p>
-          <p className="text-gray-400 text-sm">/{subscription.billingCycle}</p>
+          <p className="text-[#6b7280] text-xs mt-0.5">
+            /{subscription.billingCycle}
+          </p>
         </div>
       </div>
 
-      {/* Renewal Info */}
-      <div className="bg-gray-800 rounded-lg p-3 mb-4">
-        <p className="text-gray-400 text-sm">Next payment</p>
+      {/* ── RENEWAL SECTION ────────────────────────────── */}
+      <div className="bg-white/[0.04] border border-white/5 rounded-xl px-4 py-3 flex flex-col gap-1">
+        <p className="text-[#6b7280] text-xs uppercase tracking-wide">
+          Next Payment
+        </p>
         <p className="text-white text-sm font-medium">
-          {new Date(subscription.nextPayDate).toLocaleDateString("en-IN", {
+          {new Date(subscription.nextPayDate).toLocaleDateString("en-US", {
+            month: "short",
             day: "numeric",
-            month: "long",
             year: "numeric",
           })}
         </p>
-        <p className={`text-sm font-semibold ${renewalColor}`}>
-          {daysUntil === 0
-            ? "Due today!"
-            : daysUntil === 1
-            ? "Due tomorrow!"
-            : `${daysUntil} days left`}
-        </p>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className={`w-1.5 h-1.5 rounded-full ${urgencyDot}`} />
+          <p className={`text-xs font-semibold ${urgencyColor}`}>
+            {daysLeft === 0 ? "Due today" : `${daysLeft} days left`}
+          </p>
+        </div>
       </div>
 
-      {/* Status */}
-      <div className="flex items-center justify-between mb-4">
-        <span
-          className={`text-xs px-3 py-1 rounded-full font-medium ${
-            subscription.status === "active"
-              ? "bg-green-500/20 text-green-400"
-              : subscription.status === "paused"
-              ? "bg-yellow-500/20 text-yellow-400"
-              : "bg-red-500/20 text-red-400"
-          }`}
-        >
-          {subscription.status}
-        </span>
-        {subscription.website && (
-          <a
-            href={subscription.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 text-sm"
-          >
-            Visit site →
-          </a>
-        )}
-      </div>
-
-      {/* Notes */}
-      {subscription.notes && (
-        <p className="text-gray-500 text-sm mb-4 italic">{subscription.notes}</p>
-      )}
-
-      {/* Action Buttons */}
-      <div className="flex gap-2">
+      {/* ── ACTION BUTTONS ─────────────────────────────── */}
+      <div className="flex gap-2 mt-auto">
         <button
           onClick={() => onEdit(subscription)}
-          className="flex-1 bg-gray-800 hover:bg-gray-700 text-white text-sm py-2 rounded-lg transition-colors"
+          className="
+            flex-1 text-sm py-2 rounded-lg font-medium
+            bg-white/5 hover:bg-white/10
+            text-[#d1d5db] hover:text-white
+            border border-white/5 hover:border-white/10
+            transition-all duration-150
+          "
         >
           Edit
         </button>
+
         <button
           onClick={() => onDelete(subscription.id)}
-          className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm py-2 rounded-lg transition-colors"
+          className="
+            flex-1 text-sm py-2 rounded-lg font-medium
+            bg-red-500/10 hover:bg-red-500/20
+            text-red-400 hover:text-red-300
+            border border-red-500/10 hover:border-red-500/20
+            transition-all duration-150
+          "
         >
           Delete
         </button>
