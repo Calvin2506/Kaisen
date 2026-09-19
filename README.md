@@ -1,25 +1,6 @@
 # ✦ Kaisen
 
-> A professional subscription tracking app built to help you track, analyze, and reduce your monthly expenses — inspired by the Japanese philosophy of continuous improvement (*Kaizen*).
-
-## 📸 Preview
-
-### Landing Page
-![Landing Page](./screenshots/landing.png)
-
-### Dashboard
-![Dashboard](./screenshots/dashboard.png)
-
-### Analytics
-![Analytics](./screenshots/analytics.png)
-
-### Suggestions (AI-Powered)
-![Suggestions](./screenshots/suggestions.png)
-
-### Subscription Manager (Regional Streaming Catalog)
-![Subscriptions](./screenshots/subscriptions.png)
-
----
+> A professional subscription tracking app built to help you track, analyze, and reduce your monthly expenses — inspired by the Japanese philosophy of continuous improvement (_Kaizen_).
 
 ## ✨ Features
 
@@ -39,15 +20,15 @@
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Framework | Next.js 16 (App Router, Turbopack) |
-| Styling | Tailwind CSS v4 |
-| Database | Firebase Firestore (NoSQL) |
-| Auth | NextAuth.js v4 + bcryptjs |
-| Charts | Recharts |
+| Layer          | Technology                                         |
+| -------------- | -------------------------------------------------- |
+| Framework      | Next.js 16 (App Router, Turbopack)                 |
+| Styling        | Tailwind CSS v4                                    |
+| Database       | Firebase Firestore (NoSQL)                         |
+| Auth           | NextAuth.js v4 + bcryptjs                          |
+| Charts         | Recharts                                           |
 | AI Suggestions | Hugging Face Inference API (Llama-3.1-8B-Instruct) |
-| Deployment | Vercel |
+| Deployment     | Vercel                                             |
 
 ---
 
@@ -158,6 +139,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### Collections
 
 **users**
+
 ```
 {
   id: string (auto-generated)
@@ -169,6 +151,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ```
 
 **subscriptions**
+
 ```
 {
   id: string (auto-generated)
@@ -191,6 +174,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### Indexes Required
 
 Create a **composite index** in Firestore Console → Indexes:
+
 - Collection: `subscriptions`
 - Fields: `userId` (Ascending) + `nextPayDate` (Ascending)
 
@@ -198,21 +182,22 @@ Create a **composite index** in Firestore Console → Indexes:
 
 ## 📡 API Routes
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/signup` | Register a new user |
-| POST | `/api/auth/signin` | Login (NextAuth) |
-| GET | `/api/subscriptions` | Get all user subscriptions |
-| POST | `/api/subscriptions` | Create a new subscription |
-| PUT | `/api/subscriptions/:id` | Update a subscription |
-| DELETE | `/api/subscriptions/:id` | Delete a subscription |
-| POST | `/api/ai-suggestions` | Get AI-powered cost optimization suggestions |
+| Method | Endpoint                 | Description                                  |
+| ------ | ------------------------ | -------------------------------------------- |
+| POST   | `/api/auth/signup`       | Register a new user                          |
+| POST   | `/api/auth/signin`       | Login (NextAuth)                             |
+| GET    | `/api/subscriptions`     | Get all user subscriptions                   |
+| POST   | `/api/subscriptions`     | Create a new subscription                    |
+| PUT    | `/api/subscriptions/:id` | Update a subscription                        |
+| DELETE | `/api/subscriptions/:id` | Delete a subscription                        |
+| POST   | `/api/ai-suggestions`    | Get AI-powered cost optimization suggestions |
 
 ---
 
 ## 🤖 AI Suggestions API
 
 **Request:**
+
 ```json
 POST /api/ai-suggestions
 {
@@ -232,28 +217,32 @@ POST /api/ai-suggestions
 ```
 
 **Response:**
+
 ```json
 {
-  "suggestions": [
-    {
-      "type": "yearly_savings",
-      "title": "Switch Netflix to Yearly",
-      "description": "Netflix Premium at ₹649/mo = ₹7,788/yr. Yearly plan saves ~20% (₹1,557/yr).",
-      "potentialSavings": 1557,
-      "savingsPeriod": "yearly",
-      "priority": "high",
-      "actionItems": ["Check Netflix yearly pricing", "Switch to annual billing"],
-      "affectedSubscriptions": ["Netflix"]
-    }
-  ],
-  "summary": {
-    "totalMonthlySpend": 649,
-    "totalYearlySpend": 7788,
-    "potentialMonthlySavings": 0,
-    "potentialYearlySavings": 1557,
-    "topCategory": "Entertainment",
-    "topCategorySpend": 649
-  }
+   "suggestions": [
+      {
+         "type": "yearly_savings",
+         "title": "Switch Netflix to Yearly",
+         "description": "Netflix Premium at ₹649/mo = ₹7,788/yr. Yearly plan saves ~20% (₹1,557/yr).",
+         "potentialSavings": 1557,
+         "savingsPeriod": "yearly",
+         "priority": "high",
+         "actionItems": [
+            "Check Netflix yearly pricing",
+            "Switch to annual billing"
+         ],
+         "affectedSubscriptions": ["Netflix"]
+      }
+   ],
+   "summary": {
+      "totalMonthlySpend": 649,
+      "totalYearlySpend": 7788,
+      "potentialMonthlySavings": 0,
+      "potentialYearlySavings": 1557,
+      "topCategory": "Entertainment",
+      "topCategorySpend": 649
+   }
 }
 ```
 
