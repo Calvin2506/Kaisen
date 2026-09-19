@@ -2,21 +2,7 @@
 
 > A professional subscription tracking app built to help you track, analyze, and reduce your monthly expenses — inspired by the Japanese philosophy of continuous improvement (*Kaizen*).
 
-## 📸 Preview
 
-### Landing Page
-![Landing Page](./screenshots/landing.png)
-
-### Dashboard
-![Dashboard](./screenshots/dashboard.png)
-
-### Analytics
-![Analytics](./screenshots/analytics.png)
-
-### Suggestions
-![Suggestions](./screenshots/suggestions.png)
-
----
 
 ## ✨ Features
 
