@@ -4,6 +4,19 @@ import { authOptions } from "@/lib/auth"
 import db from "@/lib/db"
 import { calculateNextPayDate } from "@/lib/helpers"
 
+function serializeSubscription(subscription) {
+  return Object.fromEntries(
+    Object.entries(subscription).map(([key, value]) => [
+      key,
+      value && typeof value.toDate === "function"
+        ? value.toDate().toISOString()
+        : value instanceof Date
+          ? value.toISOString()
+          : value,
+    ]),
+  )
+}
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
@@ -16,7 +29,7 @@ export async function GET() {
       orderBy: { nextPayDate: "asc" },
     })
 
-    return NextResponse.json(subscriptions)
+    return NextResponse.json(subscriptions.map(serializeSubscription))
   } catch (error) {
     console.error("GET /api/subscriptions error:", error)
     return NextResponse.json({ error: "Failed to fetch subscriptions" }, { status: 500 })

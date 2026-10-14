@@ -1,17 +1,25 @@
-import { formatCurrency, getDaysUntilRenewal } from "@/lib/helpers"
+import { formatCurrency, getDaysUntilRenewal, calculateNextPayDate } from "@/lib/helpers"
 
 export default function SubscriptionCard({ subscription, onEdit, onDelete }) {
-  const daysLeft = getDaysUntilRenewal(subscription.nextPayDate)
+  const nextPayDate = subscription.nextPayDate 
+    ? new Date(subscription.nextPayDate)
+    : calculateNextPayDate(subscription.startDate, subscription.billingCycle)
+  const isValidDate = nextPayDate && !isNaN(nextPayDate.getTime())
+  const daysLeft = isValidDate ? getDaysUntilRenewal(nextPayDate) : null
 
   const urgencyColor =
-    daysLeft <= 3
+    daysLeft === null
+      ? "text-[#6b7280]"
+      : daysLeft <= 3
       ? "text-red-400"
       : daysLeft <= 7
       ? "text-yellow-400"
       : "text-green-400"
 
   const urgencyDot =
-    daysLeft <= 3
+    daysLeft === null
+      ? "bg-[#6b7280]"
+      : daysLeft <= 3
       ? "bg-red-400"
       : daysLeft <= 7
       ? "bg-yellow-400"
@@ -59,16 +67,22 @@ export default function SubscriptionCard({ subscription, onEdit, onDelete }) {
           Next Payment
         </p>
         <p className="text-white text-sm font-medium">
-          {new Date(subscription.nextPayDate).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
+          {isValidDate
+            ? nextPayDate.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })
+            : "Invalid date"}
         </p>
         <div className="flex items-center gap-1.5 mt-0.5">
           <span className={`w-1.5 h-1.5 rounded-full ${urgencyDot}`} />
           <p className={`text-xs font-semibold ${urgencyColor}`}>
-            {daysLeft === 0 ? "Due today" : `${daysLeft} days left`}
+            {daysLeft === null
+              ? "Unknown"
+              : daysLeft === 0
+              ? "Due today"
+              : `${daysLeft} days left`}
           </p>
         </div>
       </div>

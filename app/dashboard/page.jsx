@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
 import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Tooltip, ResponsiveContainer, LabelList,
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from "recharts"
 import { getDaysUntilRenewal, formatCurrency } from "@/lib/helpers"
@@ -192,12 +192,19 @@ export default function Dashboard() {
                           outerRadius={100}
                           paddingAngle={3}
                           dataKey="value"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                           labelLine={false}
+                          fill={COLORS}
+                          stroke="rgba(255,255,255,0.1)"
+                          strokeWidth={1}
                         >
-                          {categoryData.map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
+                          <LabelList
+                            dataKey="value"
+                            position="outside"
+                            fill="rgba(255,255,255,0.8)"
+                            fontSize={11}
+                            fontFamily="'DM Sans', sans-serif"
+                            render={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          />
                         </Pie>
                         <Tooltip
                           formatter={(value) => [formatCurrency(value), "Monthly"]}

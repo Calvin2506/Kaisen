@@ -6,6 +6,7 @@ import { calculateNextPayDate } from "@/lib/helpers"
 
 export async function PUT(req, { params }) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -16,7 +17,7 @@ export async function PUT(req, { params }) {
 
     const updated = await db.subscription.updateMany({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id,
       },
       data: {
@@ -36,17 +37,22 @@ export async function PUT(req, { params }) {
 
 export async function DELETE(req, { params }) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    await db.subscription.deleteMany({
+    const deleted = await db.subscription.deleteMany({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id,
       },
     })
+
+    if (deleted.count === 0) {
+      return NextResponse.json({ error: "Subscription not found" }, { status: 404 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

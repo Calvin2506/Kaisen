@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { formatCurrency, getDaysUntilRenewal } from "@/lib/helpers";
+import { formatCurrency, getDaysUntilRenewal, calculateNextPayDate } from "@/lib/helpers";
 import { Card, Badge, Modal, Button, Input, Select, Textarea } from "@/components/ui";
 import PageShell from "@/components/PageShell";
 import PlatformIcon from "@/components/PlatformIcon";
@@ -74,6 +74,8 @@ export default function SubscriptionsPage() {
    const [errors, setErrors] = useState({});
    const [platformSearch, setPlatformSearch] = useState("");
    const [activeCategory, setActiveCategory] = useState("All");
+   const [trackedSearch, setTrackedSearch] = useState("");
+   const [statusFilter, setStatusFilter] = useState("all");
    const planPanelRef = useRef(null);
 
    const fetchSubscriptions = async () => {
@@ -167,32 +169,40 @@ export default function SubscriptionsPage() {
       setLoading(true);
       try {
          if (editing) {
-            await fetch(`/api/subscriptions/${editing.id}`, {
+            const response = await fetch(`/api/subscriptions/${editing.id}`, {
                method: "PUT",
                headers: { "Content-Type": "application/json" },
                body: JSON.stringify(formData),
             });
+            if (!response.ok) throw new Error("Could not update subscription");
          } else {
-            await fetch("/api/subscriptions", {
+            const response = await fetch("/api/subscriptions", {
                method: "POST",
                headers: { "Content-Type": "application/json" },
                body: JSON.stringify(formData),
             });
+            if (!response.ok) throw new Error("Could not add subscription");
          }
          resetForm();
          fetchSubscriptions();
       } catch (error) {
          console.error("Failed to save", error);
+         alert(error.message || "Failed to save subscription");
       } finally {
          setLoading(false);
       }
    };
 
-   const handleDelete = async (id) => {
-      if (!confirm("Delete this subscription?")) return;
-      await fetch(`/api/subscriptions/${id}`, { method: "DELETE" });
-      setSubscriptions((prev) => prev.filter((sub) => sub.id !== id));
-   };
+const handleDelete = async (id) => {
+       if (!confirm("Delete this subscription?")) return;
+       const res = await fetch(`/api/subscriptions/${id}`, { method: "DELETE" });
+       const data = await res.json();
+       if (!res.ok || !data.success) {
+         alert("Failed to delete subscription");
+         return;
+       }
+       setSubscriptions((prev) => prev.filter((sub) => sub.id !== id));
+    };
 
    const featuredPlatforms = useMemo(
       () =>
@@ -230,6 +240,12 @@ export default function SubscriptionsPage() {
    }, [platformSearch, activeCategory]);
 
    const activeSubs = subscriptions.filter((s) => s.status === "active");
+   const visibleSubscriptions = subscriptions.filter((subscription) => {
+      const matchesSearch = `${subscription.name} ${subscription.category}`
+         .toLowerCase()
+         .includes(trackedSearch.trim().toLowerCase());
+      return matchesSearch && (statusFilter === "all" || subscription.status === statusFilter);
+   });
    const totalMonthly = activeSubs.reduce(
       (sum, s) =>
          sum + (s.billingCycle === "monthly" ? s.amount : s.amount / 12),
@@ -412,6 +428,26 @@ export default function SubscriptionsPage() {
                   </Badge>
                </div>
 
+               {subscriptions.length > 0 && (
+                  <div className="flex flex-col sm:flex-row gap-3 mb-5">
+                     <Input
+                        aria-label="Search tracked subscriptions"
+                        value={trackedSearch}
+                        onChange={(event) => setTrackedSearch(event.target.value)}
+                        placeholder="Search by service or category"
+                     />
+                     <Select
+                        aria-label="Filter subscriptions by status"
+                        value={statusFilter}
+                        onChange={(event) => setStatusFilter(event.target.value)}
+                        options={[
+                           { value: "all", label: "All statuses" },
+                           ...STATUS_OPTIONS,
+                        ]}
+                     />
+                  </div>
+               )}
+
                {subscriptions.length === 0 ? (
                   <Card className="p-12 text-center">
                      <p className="text-white/40 text-sm max-w-sm mx-auto">
@@ -420,8 +456,13 @@ export default function SubscriptionsPage() {
                      </p>
                   </Card>
                ) : (
+                  visibleSubscriptions.length === 0 ? (
+                     <Card className="p-8 text-center text-white/40 text-sm">
+                        No subscriptions match these filters.
+                     </Card>
+                  ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                     {subscriptions.map((sub) => (
+                     {visibleSubscriptions.map((sub) => (
                         <TrackedCard
                            key={sub.id}
                            subscription={sub}
@@ -430,6 +471,7 @@ export default function SubscriptionsPage() {
                         />
                      ))}
                   </div>
+                  )
                )}
             </section>
 
@@ -759,14 +801,18 @@ function PlanSelector({
 }
 
 function TrackedCard({ subscription, onEdit, onDelete }) {
-   const daysLeft = getDaysUntilRenewal(subscription.nextPayDate);
+   const nextPayDate = subscription.nextPayDate 
+     ? new Date(subscription.nextPayDate)
+     : calculateNextPayDate(subscription.startDate, subscription.billingCycle);
+   const isValidDate = nextPayDate && !isNaN(nextPayDate.getTime());
+   const daysLeft = isValidDate ? getDaysUntilRenewal(nextPayDate) : null;
    const platform = findPlatformByName(subscription.name);
    const monthlyAmount =
       subscription.billingCycle === "monthly"
          ? subscription.amount
          : Math.round(subscription.amount / 12);
    const urgency =
-      daysLeft <= 3 ? "text-red-400" : daysLeft <= 7 ? "text-amber-400" : "text-emerald-400";
+      daysLeft === null ? "text-white/40" : daysLeft <= 3 ? "text-red-400" : daysLeft <= 7 ? "text-amber-400" : "text-emerald-400";
    const statusVariant =
       subscription.status === "active"
          ? "success"
@@ -805,15 +851,17 @@ function TrackedCard({ subscription, onEdit, onDelete }) {
             <div>
                <p className="text-white/35 text-xs uppercase tracking-wide">Next payment</p>
                <p className="text-white mt-1">
-                  {new Date(subscription.nextPayDate).toLocaleDateString("en-IN", {
-                     day: "numeric",
-                     month: "short",
-                     year: "numeric",
-                  })}
+                  {isValidDate
+                     ? nextPayDate.toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                       })
+                     : "Invalid date"}
                </p>
             </div>
             <p className={`text-sm font-medium ${urgency}`}>
-               {daysLeft === 0 ? "Due today" : `${daysLeft} days left`}
+               {daysLeft === null ? "Unknown" : daysLeft === 0 ? "Due today" : `${daysLeft} days left`}
             </p>
          </div>
 
