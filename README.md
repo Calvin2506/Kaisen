@@ -12,6 +12,10 @@
 - **🤖 AI-Powered Suggestions** — Get personalized optimization tips via Hugging Face Llama 3.1 8B (with rule-based fallback)
 - **💡 Cost Suggestions** — Duplicate category detection, yearly plan savings, free alternatives, unused subscription alerts
 - **🔔 Renewal Alerts** — Color-coded countdown showing days until next payment (red = urgent, yellow = soon, green = safe)
+- **🧾 Payment History** — Record a paid renewal, automatically advance its next date, and chart real payment history
+- **🔔 Browser Reminders** — Optional reminders for upcoming and overdue renewals while the dashboard is open
+- **💱 Currency-Aware Analytics** — Keep spend totals and charts grouped by currency instead of adding unlike amounts
+- **📦 CSV Backup** — Export subscriptions or import up to 200 validated records at once
 - **🔒 Authentication** — Secure signup/login with encrypted passwords using NextAuth + bcrypt
 - **🛡️ Route Protection** — Middleware-protected routes redirect unauthenticated users to login
 - **🎨 Professional UI** — Dark corporate design with DM Serif Display + DM Sans typography
@@ -183,6 +187,21 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 }
 ```
 
+**payments** (created when a user marks an active renewal as paid)
+
+```
+{
+  id: string (auto-generated)
+  userId: string
+  subscriptionId: string
+  subscriptionName: string
+  amount: number
+  currency: string
+  billingCycle: "monthly" | "yearly"
+  paidAt: timestamp
+}
+```
+
 ### Indexes Required
 
 Create a **composite index** in Firestore Console → Indexes:
@@ -202,6 +221,9 @@ Create a **composite index** in Firestore Console → Indexes:
 | POST   | `/api/subscriptions`     | Create a new subscription                    |
 | PUT    | `/api/subscriptions/:id` | Update a subscription                        |
 | DELETE | `/api/subscriptions/:id` | Delete a subscription                        |
+| POST   | `/api/subscriptions/:id/renew` | Record a payment and advance the renewal date |
+| GET    | `/api/payments`          | Get the signed-in user's payment history     |
+| POST   | `/api/subscriptions/import` | Validate and import a subscription batch     |
 | POST   | `/api/ai-suggestions`    | Get AI-powered cost optimization suggestions |
 
 ---

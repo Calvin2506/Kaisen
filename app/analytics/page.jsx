@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from "recharts"
-import { formatCurrency } from "@/lib/helpers"
+import { formatCurrency, formatCurrencyGroups, monthlyAmount, spendByCurrency } from "@/lib/helpers"
 import { Card, CardContent } from "@/components/ui"
 import PageShell, { LoadingScreen } from "@/components/PageShell"
 
@@ -23,6 +23,7 @@ const TOOLTIP_STYLE = {
 export default function Analytics() {
   const [subscriptions, setSubscriptions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selectedCurrency, setSelectedCurrency] = useState("INR")
 
   useEffect(() => {
     const fetch_ = async () => {
@@ -40,30 +41,29 @@ export default function Analytics() {
   }, [])
 
   const active = subscriptions.filter((s) => s.status === "active")
+  const monthlyByCurrency = spendByCurrency(active)
+  const currencyOptions = Object.keys(monthlyByCurrency)
+  const chartCurrency = currencyOptions.includes(selectedCurrency) ? selectedCurrency : currencyOptions[0] || "INR"
+  const currencyActive = active.filter((sub) => (sub.currency || "INR") === chartCurrency)
+  const totalMonthly = monthlyByCurrency[chartCurrency] || 0
+  const totalMonthlyLabel = formatCurrencyGroups(monthlyByCurrency)
+  const totalYearlyLabel = formatCurrencyGroups(Object.fromEntries(Object.entries(monthlyByCurrency).map(([currency, amount]) => [currency, amount * 12])))
 
-  const totalMonthly = active.reduce((sum, sub) => {
-    return sum + (sub.billingCycle === "monthly" ? sub.amount : sub.amount / 12)
-  }, 0)
-
-  const categoryData = active.reduce((acc, sub) => {
+  const categoryData = currencyActive.reduce((acc, sub) => {
     const existing = acc.find((i) => i.name === sub.category)
-    const monthly = sub.billingCycle === "monthly" ? sub.amount : sub.amount / 12
+    const monthly = monthlyAmount(sub)
     if (existing) { existing.value += monthly; existing.count += 1 }
     else acc.push({ name: sub.category, value: monthly, count: 1 })
     return acc
   }, []).sort((a, b) => b.value - a.value)
 
   const billingData = [
-    { name: "Monthly", value: active.filter((s) => s.billingCycle === "monthly").length },
-    { name: "Yearly", value: active.filter((s) => s.billingCycle === "yearly").length },
+    { name: "Monthly", value: currencyActive.filter((s) => s.billingCycle === "monthly").length },
+    { name: "Yearly", value: currencyActive.filter((s) => s.billingCycle === "yearly").length },
   ]
 
-  const mostExpensive = [...active]
-    .sort((a, b) => {
-      const aM = a.billingCycle === "monthly" ? a.amount : a.amount / 12
-      const bM = b.billingCycle === "monthly" ? b.amount : b.amount / 12
-      return bM - aM
-    })
+  const mostExpensive = [...currencyActive]
+    .sort((a, b) => monthlyAmount(b) - monthlyAmount(a))
     .slice(0, 5)
 
   if (loading) {
@@ -71,22 +71,28 @@ export default function Analytics() {
   }
 
   const summaryStats = [
-    { label: "Monthly Spend", value: formatCurrency(totalMonthly), accent: "#3b82f6" },
-    { label: "Yearly Spend", value: formatCurrency(totalMonthly * 12), accent: "#8b5cf6" },
+    { label: "Monthly Spend", value: totalMonthlyLabel, accent: "#3b82f6" },
+    { label: "Yearly Spend", value: totalYearlyLabel, accent: "#8b5cf6" },
     { label: "Active Subs", value: active.length, accent: "#22c55e" },
-    { label: "Avg per Sub", value: active.length > 0 ? formatCurrency(totalMonthly / active.length) : "₹0", accent: "#f59e0b" },
+    { label: `Avg per ${chartCurrency} Sub`, value: currencyActive.length > 0 ? formatCurrency(totalMonthly / currencyActive.length, chartCurrency) : formatCurrency(0, chartCurrency), accent: "#f59e0b" },
   ]
 
   return (
     <PageShell>
-        <div className="mb-10">
-          <p className="text-blue-300/80 text-xs uppercase tracking-[0.2em] mb-2">Insights</p>
-          <h1 className="font-serif text-3xl lg:text-4xl text-white tracking-tight mb-2">
-            Analytics
-          </h1>
-          <p className="text-white/40 text-sm">
-            Where the money actually goes.
-          </p>
+        <div className="mb-10 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <p className="text-blue-300/80 text-xs uppercase tracking-[0.2em] mb-2">Insights</p>
+            <h1 className="font-serif text-3xl lg:text-4xl text-white tracking-tight mb-2">Analytics</h1>
+            <p className="text-white/40 text-sm">Where the money actually goes.</p>
+          </div>
+          {currencyOptions.length > 0 && (
+            <label className="text-xs text-white/45">
+              Charts and averages in
+              <select value={chartCurrency} onChange={(event) => setSelectedCurrency(event.target.value)} className="input-base ml-3 w-auto text-sm">
+                {currencyOptions.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+              </select>
+            </label>
+          )}
         </div>
 
         {/* Summary Stats */}
@@ -99,7 +105,7 @@ export default function Analytics() {
                 </div>
                 <div>
                   <p className="text-white/30 text-xs uppercase tracking-wide">{stat.label}</p>
-                  <p className="text-white font-bold text-2xl tracking-tight">{stat.value}</p>
+                  <p className="text-white font-bold text-xl tracking-tight break-words">{stat.value}</p>
                 </div>
               </div>
             </Card>
@@ -131,7 +137,7 @@ export default function Analytics() {
                         tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}
                         axisLine={false}
                         tickLine={false}
-                        tickFormatter={(v) => formatCurrency(v).replace(/[^\d]/g, '')}
+                        tickFormatter={(v) => formatCurrency(v, chartCurrency).replace(/[^\d]/g, '')}
                       />
                       <YAxis
                         type="category"
@@ -142,7 +148,7 @@ export default function Analytics() {
                         tickLine={false}
                       />
                       <Tooltip
-                        formatter={(value) => [formatCurrency(value), "Monthly"]}
+                        formatter={(value) => [formatCurrency(value, chartCurrency), "Monthly"]}
                         contentStyle={TOOLTIP_STYLE}
                         cursor={{ fill: "rgba(255,255,255,0.03)" }}
                       />
@@ -217,7 +223,7 @@ export default function Analytics() {
             ) : (
               <div className="space-y-4">
                 {mostExpensive.map((sub, index) => {
-                  const monthly = sub.billingCycle === "monthly" ? sub.amount : sub.amount / 12
+                  const monthly = monthlyAmount(sub)
                   const pct = totalMonthly > 0 ? ((monthly / totalMonthly) * 100).toFixed(1) : 0
                   return (
                     <div key={sub.id} className="animate-slide-up" style={{ animationDelay: `${index * 50}ms` }}>
@@ -234,7 +240,7 @@ export default function Analytics() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-white font-semibold">{formatCurrency(monthly)}</p>
+                          <p className="text-white font-semibold">{formatCurrency(monthly, chartCurrency)}</p>
                           <p className="text-white/30 text-xs">/mo · {pct}%</p>
                         </div>
                       </div>
@@ -283,15 +289,15 @@ export default function Analytics() {
                           </div>
                         </td>
                         <td className="py-3 px-1 text-right text-white/40">{cat.count}</td>
-                        <td className="py-3 px-1 text-right text-white font-medium">{formatCurrency(cat.value)}</td>
-                        <td className="py-3 px-1 text-right text-white/40">{formatCurrency(cat.value * 12)}</td>
+                        <td className="py-3 px-1 text-right text-white font-medium">{formatCurrency(cat.value, chartCurrency)}</td>
+                        <td className="py-3 px-1 text-right text-white/40">{formatCurrency(cat.value * 12, chartCurrency)}</td>
                       </tr>
                     ))}
                     <tr className="border-t border-white/10 bg-white/3">
                       <td className="py-3 px-1 text-white font-semibold">Total</td>
-                      <td className="py-3 px-1 text-right text-white/50">{active.length}</td>
-                      <td className="py-3 px-1 text-right text-white font-bold">{formatCurrency(totalMonthly)}</td>
-                      <td className="py-3 px-1 text-right text-white font-bold">{formatCurrency(totalMonthly * 12)}</td>
+                      <td className="py-3 px-1 text-right text-white/50">{currencyActive.length}</td>
+                      <td className="py-3 px-1 text-right text-white font-bold">{formatCurrency(totalMonthly, chartCurrency)}</td>
+                      <td className="py-3 px-1 text-right text-white font-bold">{formatCurrency(totalMonthly * 12, chartCurrency)}</td>
                     </tr>
                   </tbody>
                 </table>

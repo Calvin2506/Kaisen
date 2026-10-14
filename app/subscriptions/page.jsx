@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { formatCurrency, getDaysUntilRenewal, getRenewalLabel, calculateNextPayDate } from "@/lib/helpers";
+import { formatCurrency, formatCurrencyGroups, spendByCurrency, getDaysUntilRenewal, getRenewalLabel, calculateNextPayDate } from "@/lib/helpers";
 import { Card, Badge, Modal, Button, Input, Select, Textarea } from "@/components/ui";
+import { parseCsv, subscriptionsToCsv } from "@/lib/csv";
 import PageShell from "@/components/PageShell";
 import PlatformIcon from "@/components/PlatformIcon";
 import {
@@ -71,12 +72,15 @@ export default function SubscriptionsPage() {
    const [selectedPlan, setSelectedPlan] = useState(null);
    const [formData, setFormData] = useState(emptyForm);
    const [loading, setLoading] = useState(false);
+   const [markingPaidId, setMarkingPaidId] = useState(null);
+   const [importing, setImporting] = useState(false);
    const [errors, setErrors] = useState({});
    const [platformSearch, setPlatformSearch] = useState("");
    const [activeCategory, setActiveCategory] = useState("All");
    const [trackedSearch, setTrackedSearch] = useState("");
    const [statusFilter, setStatusFilter] = useState("all");
    const planPanelRef = useRef(null);
+   const importFileRef = useRef(null);
 
    const fetchSubscriptions = async () => {
       const res = await fetch("/api/subscriptions");
@@ -85,7 +89,14 @@ export default function SubscriptionsPage() {
    };
 
    useEffect(() => {
-      fetchSubscriptions();
+      let cancelled = false;
+      fetch("/api/subscriptions")
+         .then((response) => response.json())
+         .then((data) => {
+            if (!cancelled && Array.isArray(data)) setSubscriptions(data);
+         })
+         .catch((error) => console.error("Failed to load subscriptions", error));
+      return () => { cancelled = true; };
    }, []);
 
    useEffect(() => {
@@ -204,6 +215,55 @@ const handleDelete = async (id) => {
        setSubscriptions((prev) => prev.filter((sub) => sub.id !== id));
     };
 
+   const handleMarkPaid = async (subscription) => {
+      if (!confirm(`Record ${formatCurrency(subscription.amount, subscription.currency)} as paid for ${subscription.name}? This will advance its next renewal date.`)) return;
+      setMarkingPaidId(subscription.id);
+      try {
+         const response = await fetch(`/api/subscriptions/${subscription.id}/renew`, { method: "POST" });
+         const data = await response.json();
+         if (!response.ok) throw new Error(data.error || "Could not record this payment");
+         await fetchSubscriptions();
+      } catch (error) {
+         alert(error.message || "Could not record this payment");
+      } finally {
+         setMarkingPaidId(null);
+      }
+   };
+
+   const handleExport = () => {
+      const blob = new Blob([subscriptionsToCsv(subscriptions)], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `kaisen-subscriptions-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+   };
+
+   const handleImportFile = async (event) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file) return;
+      setImporting(true);
+      try {
+         const rows = parseCsv(await file.text());
+         if (!rows.length) throw new Error("The CSV does not contain any subscription rows.");
+         const response = await fetch("/api/subscriptions/import", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ subscriptions: rows }),
+         });
+         const result = await response.json();
+         if (!response.ok) throw new Error(result.error || "Import failed.");
+         await fetchSubscriptions();
+         alert(`Imported ${result.imported} subscriptions.`);
+      } catch (error) {
+         alert(error.message || "Could not import that CSV file.");
+      } finally {
+         setImporting(false);
+      }
+   };
+
    const featuredPlatforms = useMemo(
       () =>
          [
@@ -255,11 +315,10 @@ const handleDelete = async (id) => {
          const secondExpired = second.status === "active" && getDaysUntilRenewal(second.nextPayDate) < 0;
          return Number(secondExpired) - Number(firstExpired);
       });
-   const totalMonthly = activeSubs.reduce(
-      (sum, s) =>
-         sum + (s.billingCycle === "monthly" ? s.amount : s.amount / 12),
-      0,
-   );
+   const monthlyByCurrency = spendByCurrency(activeSubs);
+   const yearlyByCurrency = Object.fromEntries(Object.entries(monthlyByCurrency).map(([currency, amount]) => [currency, amount * 12]));
+   const totalMonthly = formatCurrencyGroups(monthlyByCurrency);
+   const totalYearly = formatCurrencyGroups(yearlyByCurrency);
 
    return (
       <PageShell>
@@ -289,13 +348,13 @@ const handleDelete = async (id) => {
                <StatCard label="Active" value={activeSubs.length} hint="currently billing" accent="green" />
                <StatCard
                   label="Monthly"
-                  value={formatCurrency(totalMonthly)}
+                  value={totalMonthly}
                   hint="active spend"
                   accent="blue"
                />
                <StatCard
                   label="Yearly"
-                  value={formatCurrency(totalMonthly * 12)}
+                  value={totalYearly}
                   hint="projected"
                   accent="gold"
                />
@@ -440,11 +499,22 @@ const handleDelete = async (id) => {
                      </p>
                   </div>
                )}
-               <div className="flex items-center gap-3 mb-5">
-                  <h2 className="text-white text-lg font-medium">Your subscriptions</h2>
-                  <Badge variant="neutral">
-                     {subscriptions.length} tracked · {activeSubs.length} active
-                  </Badge>
+               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+                  <div className="flex items-center gap-3">
+                     <h2 className="text-white text-lg font-medium">Your subscriptions</h2>
+                     <Badge variant="neutral">
+                        {subscriptions.length} tracked · {activeSubs.length} active
+                     </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                     <input ref={importFileRef} type="file" accept=".csv,text/csv" onChange={handleImportFile} className="hidden" />
+                     <Button type="button" variant="secondary" size="sm" loading={importing} onClick={() => importFileRef.current?.click()}>
+                        Import CSV
+                     </Button>
+                     <Button type="button" variant="ghost" size="sm" onClick={handleExport} disabled={subscriptions.length === 0}>
+                        Export CSV
+                     </Button>
+                  </div>
                </div>
 
                {subscriptions.length > 0 && (
@@ -487,6 +557,8 @@ const handleDelete = async (id) => {
                            subscription={sub}
                            onEdit={openEdit}
                            onDelete={handleDelete}
+                           onMarkPaid={handleMarkPaid}
+                           markingPaid={markingPaidId === sub.id}
                         />
                      ))}
                   </div>
@@ -819,7 +891,7 @@ function PlanSelector({
    );
 }
 
-function TrackedCard({ subscription, onEdit, onDelete }) {
+function TrackedCard({ subscription, onEdit, onDelete, onMarkPaid, markingPaid }) {
    const nextPayDate = subscription.nextPayDate 
      ? new Date(subscription.nextPayDate)
      : calculateNextPayDate(subscription.startDate, subscription.billingCycle);
@@ -884,7 +956,12 @@ function TrackedCard({ subscription, onEdit, onDelete }) {
             </p>
          </div>
 
-         <div className="flex gap-2 mt-5 ml-2">
+         {subscription.status === "active" && (
+            <Button variant="ghost" size="sm" className="w-full mt-5 ml-2 border border-emerald-400/20 text-emerald-300 hover:bg-emerald-500/10" onClick={() => onMarkPaid(subscription)} loading={markingPaid}>
+               Mark renewal as paid
+            </Button>
+         )}
+         <div className="flex gap-2 mt-3 ml-2">
             <Button variant="secondary" size="sm" className="flex-1" onClick={() => onEdit(subscription)}>
                Edit
             </Button>

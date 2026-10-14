@@ -7,7 +7,7 @@ import {
   PieChart, Pie, Tooltip, ResponsiveContainer, LabelList,
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from "recharts"
-import { getDaysUntilRenewal, getRenewalLabel, formatCurrency } from "@/lib/helpers"
+import { getDaysUntilRenewal, getRenewalLabel, formatCurrency, formatCurrencyGroups, monthlyAmount, spendByCurrency } from "@/lib/helpers"
 import { Card, CardContent, Badge, Button } from "@/components/ui"
 import PageShell, { LoadingScreen } from "@/components/PageShell"
 
@@ -25,14 +25,32 @@ const TOOLTIP_STYLE = {
 export default function Dashboard() {
   const { data: session } = useSession()
   const [subscriptions, setSubscriptions] = useState([])
+  const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
+  const [today] = useState(() => new Date())
+  const [trendCurrency, setTrendCurrency] = useState("INR")
+  const [remindersEnabled, setRemindersEnabled] = useState(false)
+
+  useEffect(() => {
+    if (window.localStorage.getItem("kaisen-reminders") === "enabled") {
+      const frame = window.requestAnimationFrame(() => setRemindersEnabled(true))
+      return () => window.cancelAnimationFrame(frame)
+    }
+  }, [])
 
   useEffect(() => {
     const fetchSubscriptions = async () => {
       try {
-        const res = await fetch("/api/subscriptions")
-        const data = await res.json()
-        setSubscriptions(data)
+        const [subscriptionsResponse, paymentsResponse] = await Promise.all([
+          fetch("/api/subscriptions"),
+          fetch("/api/payments"),
+        ])
+        const [subscriptionsData, paymentsData] = await Promise.all([
+          subscriptionsResponse.json(),
+          paymentsResponse.json(),
+        ])
+        if (subscriptionsResponse.ok && Array.isArray(subscriptionsData)) setSubscriptions(subscriptionsData)
+        if (paymentsResponse.ok && Array.isArray(paymentsData)) setPayments(paymentsData)
       } catch (error) {
         console.error("Failed to fetch", error)
       } finally {
@@ -42,15 +60,32 @@ export default function Dashboard() {
     fetchSubscriptions()
   }, [])
 
+  useEffect(() => {
+    if (!remindersEnabled || window.Notification?.permission !== "granted") return
+    const checkRenewals = () => {
+      const todayKey = new Date().toISOString().slice(0, 10)
+      subscriptions.filter((subscription) => subscription.status === "active").forEach((subscription) => {
+        const days = getDaysUntilRenewal(subscription.nextPayDate)
+        if (days === null || days > 3) return
+        const key = `kaisen-reminder-${subscription.id}-${todayKey}`
+        if (window.localStorage.getItem(key)) return
+        new window.Notification(days < 0 ? `${subscription.name} renewal is overdue` : `${subscription.name} renews soon`, {
+          body: days < 0 ? "Confirm renewal or pause/cancel it if you no longer need it." : `${getRenewalLabel(days)}. Review the charge before it renews.`,
+        })
+        window.localStorage.setItem(key, "sent")
+      })
+    }
+    checkRenewals()
+    const interval = window.setInterval(checkRenewals, 60 * 60 * 1000)
+    return () => window.clearInterval(interval)
+  }, [remindersEnabled, subscriptions])
+
   const activeSubscriptions = subscriptions.filter((s) => s.status === "active")
 
-  const totalMonthly = activeSubscriptions.reduce((sum, sub) => {
-    if (sub.billingCycle === "monthly") return sum + sub.amount
-    if (sub.billingCycle === "yearly") return sum + sub.amount / 12
-    return sum
-  }, 0)
-
-  const totalYearly = totalMonthly * 12
+  const monthlyByCurrency = spendByCurrency(activeSubscriptions)
+  const yearlyByCurrency = Object.fromEntries(Object.entries(monthlyByCurrency).map(([currency, amount]) => [currency, amount * 12]))
+  const totalMonthly = formatCurrencyGroups(monthlyByCurrency)
+  const totalYearly = formatCurrencyGroups(yearlyByCurrency)
 
   const upcomingRenewals = activeSubscriptions
     .filter((sub) => {
@@ -60,27 +95,33 @@ export default function Dashboard() {
     .sort((a, b) => getDaysUntilRenewal(a.nextPayDate) - getDaysUntilRenewal(b.nextPayDate))
   const expiredRenewals = upcomingRenewals.filter((sub) => getDaysUntilRenewal(sub.nextPayDate) < 0)
 
-  const categoryData = activeSubscriptions.reduce((acc, sub) => {
+  const currencyOptions = Object.keys(monthlyByCurrency)
+  const chartCurrency = currencyOptions.includes(trendCurrency) ? trendCurrency : currencyOptions[0] || "INR"
+  const currencySubscriptions = activeSubscriptions.filter((sub) => (sub.currency || "INR") === chartCurrency)
+  const categoryData = currencySubscriptions.reduce((acc, sub) => {
     const existing = acc.find((item) => item.name === sub.category)
-    const monthlyAmount = sub.billingCycle === "monthly" ? sub.amount : sub.amount / 12
+    const amountMonthly = monthlyAmount(sub)
     if (existing) {
-      existing.value += monthlyAmount
+      existing.value += amountMonthly
     } else {
-      acc.push({ name: sub.category, value: monthlyAmount })
+      acc.push({ name: sub.category, value: amountMonthly })
     }
     return acc
   }, []).sort((a, b) => b.value - a.value)
 
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-  const monthlyTrend = monthNames.map((month) => ({
-    month,
-    amount: parseFloat(totalMonthly.toFixed(2)),
-  }))
+  const monthlyTrend = Array.from({ length: 6 }, (_, index) => {
+    const monthDate = new Date(today.getFullYear(), today.getMonth() - 5 + index, 1)
+    const key = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`
+    const amount = payments
+      .filter((payment) => (payment.currency || "INR") === chartCurrency && payment.paidAt?.slice(0, 7) === key)
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
+    return { month: monthDate.toLocaleDateString("en-IN", { month: "short" }), amount }
+  })
 
   const stats = [
     {
       label: "Monthly Spend",
-      value: formatCurrency(totalMonthly),
+      value: totalMonthly,
       sub: "across active subscriptions",
       accent: "#3b82f6",
       icon: (
@@ -91,7 +132,7 @@ export default function Dashboard() {
     },
     {
       label: "Yearly Projection",
-      value: formatCurrency(totalYearly),
+      value: totalYearly,
       sub: "estimated annual cost",
       accent: "#8b5cf6",
       icon: (
@@ -124,6 +165,25 @@ export default function Dashboard() {
     },
   ]
 
+  const enableReminders = async () => {
+    if (remindersEnabled) {
+      window.localStorage.removeItem("kaisen-reminders")
+      setRemindersEnabled(false)
+      return
+    }
+    if (!("Notification" in window)) {
+      alert("This browser does not support notifications.")
+      return
+    }
+    const permission = await window.Notification.requestPermission()
+    if (permission !== "granted") {
+      alert("Allow notifications in your browser settings to receive renewal reminders.")
+      return
+    }
+    window.localStorage.setItem("kaisen-reminders", "enabled")
+    setRemindersEnabled(true)
+  }
+
   if (loading) {
     return <LoadingScreen label="Loading dashboard..." />
   }
@@ -152,7 +212,7 @@ export default function Dashboard() {
           {stats.map((stat, index) => (
             <Card key={stat.label} className="p-5 animate-slide-up" style={{ animationDelay: `${index * 80}ms` }}>
               <p className="text-white/40 text-xs uppercase tracking-wider">{stat.label}</p>
-              <p className="font-serif text-3xl text-white mt-3 tracking-tight">{stat.value}</p>
+              <p className="font-serif text-2xl text-white mt-3 tracking-tight break-words">{stat.value}</p>
               <p className="text-white/30 text-xs mt-2">{stat.sub}</p>
             </Card>
           ))}
@@ -164,7 +224,7 @@ export default function Dashboard() {
           <Card className="overflow-hidden">
             <div className="px-6 py-4 border-b border-white/5">
               <div className="flex items-center justify-between">
-                <h2 className="font-medium text-white">Spend by Category</h2>
+                <h2 className="font-medium text-white">Spend by Category · {chartCurrency}</h2>
                 {categoryData.length > 0 && (
                   <Badge variant="neutral" className="text-xs">
                     {categoryData.length} categories
@@ -211,7 +271,7 @@ export default function Dashboard() {
                           />
                         </Pie>
                         <Tooltip
-                          formatter={(value) => [formatCurrency(value), "Monthly"]}
+                          formatter={(value) => [formatCurrency(value, chartCurrency), "Monthly"]}
                           contentStyle={TOOLTIP_STYLE}
                         />
                       </PieChart>
@@ -233,7 +293,17 @@ export default function Dashboard() {
           {/* Bar Chart - Monthly Trend */}
           <Card className="overflow-hidden">
             <div className="px-6 py-4 border-b border-white/5">
-              <h2 className="font-medium text-white">Monthly Spend Trend</h2>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-medium text-white">Payment History</h2>
+                  <p className="text-white/30 text-xs mt-1">Actual renewals marked as paid · {chartCurrency}</p>
+                </div>
+                {currencyOptions.length > 1 && (
+                  <select value={chartCurrency} onChange={(event) => setTrendCurrency(event.target.value)} className="input-base w-auto text-sm">
+                    {currencyOptions.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+                  </select>
+                )}
+              </div>
             </div>
             <CardContent className="p-6 pt-4">
               <div className="h-[260px]">
@@ -250,10 +320,10 @@ export default function Dashboard() {
                       tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={(v) => formatCurrency(v).replace(/[^\d]/g, '')}
+                      tickFormatter={(v) => formatCurrency(v, chartCurrency).replace(/[^\d]/g, '')}
                     />
                     <Tooltip
-                      formatter={(value) => [formatCurrency(value), "Monthly"]}
+                      formatter={(value) => [formatCurrency(value, chartCurrency), "Paid"]}
                       contentStyle={TOOLTIP_STYLE}
                       cursor={{ fill: "rgba(255,255,255,0.04)" }}
                     />
@@ -265,16 +335,51 @@ export default function Dashboard() {
           </Card>
         </div>
 
+        <Card className="mb-8 overflow-hidden">
+          <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+            <div>
+              <h2 className="font-medium text-white">Recent payments</h2>
+              <p className="text-white/35 text-xs mt-1">Renewals you have marked as paid</p>
+            </div>
+            <Link href="/subscriptions" className="text-sm text-blue-400 hover:text-blue-300">Manage →</Link>
+          </div>
+          <CardContent className="p-4 sm:p-6">
+            {payments.length === 0 ? (
+              <p className="py-5 text-center text-sm text-white/40">
+                Payment history starts when you mark a renewal as paid on the subscriptions page.
+              </p>
+            ) : (
+              <div className="divide-y divide-white/5">
+                {payments.slice(0, 5).map((payment) => (
+                  <div key={payment.id} className="flex items-center justify-between gap-4 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-white">{payment.subscriptionName}</p>
+                      <p className="mt-1 text-xs text-white/35">{new Date(payment.paidAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
+                    </div>
+                    <p className="shrink-0 font-medium text-white">{formatCurrency(payment.amount, payment.currency)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Upcoming Renewals */}
         <Card>
           <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
             <h2 className="font-medium text-white">
               {expiredRenewals.length > 0 ? "Renewals needing attention" : "Upcoming Renewals"}
             </h2>
-            <Link href="/subscriptions" className="text-sm text-blue-400 hover:text-blue-300 font-medium">
-              View all →
-            </Link>
+            <div className="flex items-center gap-4">
+              <button type="button" onClick={enableReminders} className="text-xs text-blue-300 hover:text-white">
+                {remindersEnabled ? "Reminders on · turn off" : "Enable reminders"}
+              </button>
+              <Link href="/subscriptions" className="text-sm text-blue-400 hover:text-blue-300 font-medium">
+                View all →
+              </Link>
+            </div>
           </div>
+          <p className="px-6 pt-3 text-xs text-white/30">Browser notifications are checked while you have the app open.</p>
           {expiredRenewals.length > 0 && (
             <div className="mx-6 mt-5 rounded-xl border border-red-400/25 bg-red-500/10 p-4" role="alert">
               <p className="text-red-200 font-medium">
@@ -293,7 +398,7 @@ export default function Dashboard() {
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <span className="text-4xl mb-3">🎉</span>
                 <p className="text-white/30 text-sm">No renewals in the next 7 days</p>
-                <p className="text-white/20 text-xs mt-1">You're all caught up!</p>
+                <p className="text-white/20 text-xs mt-1">You&apos;re all caught up!</p>
               </div>
             ) : (
               <div className="space-y-3">
