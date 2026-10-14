@@ -1,4 +1,4 @@
-import { formatCurrency, getDaysUntilRenewal, calculateNextPayDate } from "@/lib/helpers"
+import { formatCurrency, getDaysUntilRenewal, getRenewalLabel, calculateNextPayDate } from "@/lib/helpers"
 
 export default function SubscriptionCard({ subscription, onEdit, onDelete }) {
   const nextPayDate = subscription.nextPayDate 
@@ -78,11 +78,7 @@ export default function SubscriptionCard({ subscription, onEdit, onDelete }) {
         <div className="flex items-center gap-1.5 mt-0.5">
           <span className={`w-1.5 h-1.5 rounded-full ${urgencyDot}`} />
           <p className={`text-xs font-semibold ${urgencyColor}`}>
-            {daysLeft === null
-              ? "Unknown"
-              : daysLeft === 0
-              ? "Due today"
-              : `${daysLeft} days left`}
+            {getRenewalLabel(daysLeft)}
           </p>
         </div>
       </div>

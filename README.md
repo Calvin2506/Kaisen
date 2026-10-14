@@ -124,6 +124,18 @@ HUGGINGFACE_API_TOKEN="hf_xxxxxxxxxxxxxxxxxxxx"
 
 > **Important:** In `FIREBASE_PRIVATE_KEY`, replace actual newlines with the two characters `\n` (backslash + n).
 
+### Deploying to Vercel
+
+Add these variables in **Vercel → Project → Settings → Environment Variables** for every environment you deploy (Production, Preview, and/or Development):
+
+- `FIREBASE_PROJECT_ID` — the Firebase project ID (not the display name)
+- `FIREBASE_CLIENT_EMAIL` — the service account email
+- `FIREBASE_PRIVATE_KEY` — the full private key, with line breaks represented as `\n`
+- `NEXTAUTH_SECRET` — a long, random secret
+- `NEXTAUTH_URL` — your deployed site URL, such as `https://your-app.vercel.app`
+
+You may provide Firebase credentials as one `FIREBASE_SERVICE_ACCOUNT` variable containing the complete service account JSON instead of the three separate Firebase variables. After saving or changing variables, redeploy so the build and functions receive them. Firestore must be enabled for the configured Firebase project.
+
 ### 6. Run the development server
 
 ```bash

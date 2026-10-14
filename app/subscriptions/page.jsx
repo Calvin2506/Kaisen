@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { formatCurrency, getDaysUntilRenewal, calculateNextPayDate } from "@/lib/helpers";
+import { formatCurrency, getDaysUntilRenewal, getRenewalLabel, calculateNextPayDate } from "@/lib/helpers";
 import { Card, Badge, Modal, Button, Input, Select, Textarea } from "@/components/ui";
 import PageShell from "@/components/PageShell";
 import PlatformIcon from "@/components/PlatformIcon";
@@ -240,12 +240,21 @@ const handleDelete = async (id) => {
    }, [platformSearch, activeCategory]);
 
    const activeSubs = subscriptions.filter((s) => s.status === "active");
-   const visibleSubscriptions = subscriptions.filter((subscription) => {
-      const matchesSearch = `${subscription.name} ${subscription.category}`
-         .toLowerCase()
-         .includes(trackedSearch.trim().toLowerCase());
-      return matchesSearch && (statusFilter === "all" || subscription.status === statusFilter);
-   });
+   const expiredSubscriptions = activeSubs.filter(
+      (subscription) => getDaysUntilRenewal(subscription.nextPayDate) < 0,
+   );
+   const visibleSubscriptions = subscriptions
+      .filter((subscription) => {
+         const matchesSearch = `${subscription.name} ${subscription.category}`
+            .toLowerCase()
+            .includes(trackedSearch.trim().toLowerCase());
+         return matchesSearch && (statusFilter === "all" || subscription.status === statusFilter);
+      })
+      .sort((first, second) => {
+         const firstExpired = first.status === "active" && getDaysUntilRenewal(first.nextPayDate) < 0;
+         const secondExpired = second.status === "active" && getDaysUntilRenewal(second.nextPayDate) < 0;
+         return Number(secondExpired) - Number(firstExpired);
+      });
    const totalMonthly = activeSubs.reduce(
       (sum, s) =>
          sum + (s.billingCycle === "monthly" ? s.amount : s.amount / 12),
@@ -421,6 +430,16 @@ const handleDelete = async (id) => {
             </section>
 
             <section>
+               {expiredSubscriptions.length > 0 && (
+                  <div className="mb-6 rounded-2xl border border-red-400/25 bg-red-500/10 p-5" role="alert">
+                     <p className="text-red-200 font-medium">
+                        {expiredSubscriptions.length} active {expiredSubscriptions.length === 1 ? "subscription is" : "subscriptions are"} past the renewal date
+                     </p>
+                     <p className="mt-1 text-sm text-white/60">
+                        Review the first highlighted subscriptions. If you renewed, update the details; if you no longer need a service, edit its status to paused or cancelled.
+                     </p>
+                  </div>
+               )}
                <div className="flex items-center gap-3 mb-5">
                   <h2 className="text-white text-lg font-medium">Your subscriptions</h2>
                   <Badge variant="neutral">
@@ -461,7 +480,7 @@ const handleDelete = async (id) => {
                         No subscriptions match these filters.
                      </Card>
                   ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  <div id="tracked-subscriptions" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                      {visibleSubscriptions.map((sub) => (
                         <TrackedCard
                            key={sub.id}
@@ -861,7 +880,7 @@ function TrackedCard({ subscription, onEdit, onDelete }) {
                </p>
             </div>
             <p className={`text-sm font-medium ${urgency}`}>
-               {daysLeft === null ? "Unknown" : daysLeft === 0 ? "Due today" : `${daysLeft} days left`}
+               {getRenewalLabel(daysLeft)}
             </p>
          </div>
 

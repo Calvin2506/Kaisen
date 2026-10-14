@@ -7,7 +7,7 @@ import {
   PieChart, Pie, Tooltip, ResponsiveContainer, LabelList,
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from "recharts"
-import { getDaysUntilRenewal, formatCurrency } from "@/lib/helpers"
+import { getDaysUntilRenewal, getRenewalLabel, formatCurrency } from "@/lib/helpers"
 import { Card, CardContent, Badge, Button } from "@/components/ui"
 import PageShell, { LoadingScreen } from "@/components/PageShell"
 
@@ -53,8 +53,12 @@ export default function Dashboard() {
   const totalYearly = totalMonthly * 12
 
   const upcomingRenewals = activeSubscriptions
-    .filter((sub) => getDaysUntilRenewal(sub.nextPayDate) <= 7)
-    .sort((a, b) => new Date(a.nextPayDate) - new Date(b.nextPayDate))
+    .filter((sub) => {
+      const days = getDaysUntilRenewal(sub.nextPayDate)
+      return days !== null && days <= 7
+    })
+    .sort((a, b) => getDaysUntilRenewal(a.nextPayDate) - getDaysUntilRenewal(b.nextPayDate))
+  const expiredRenewals = upcomingRenewals.filter((sub) => getDaysUntilRenewal(sub.nextPayDate) < 0)
 
   const categoryData = activeSubscriptions.reduce((acc, sub) => {
     const existing = acc.find((item) => item.name === sub.category)
@@ -264,11 +268,26 @@ export default function Dashboard() {
         {/* Upcoming Renewals */}
         <Card>
           <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-            <h2 className="font-medium text-white">Upcoming Renewals</h2>
+            <h2 className="font-medium text-white">
+              {expiredRenewals.length > 0 ? "Renewals needing attention" : "Upcoming Renewals"}
+            </h2>
             <Link href="/subscriptions" className="text-sm text-blue-400 hover:text-blue-300 font-medium">
               View all →
             </Link>
           </div>
+          {expiredRenewals.length > 0 && (
+            <div className="mx-6 mt-5 rounded-xl border border-red-400/25 bg-red-500/10 p-4" role="alert">
+              <p className="text-red-200 font-medium">
+                {expiredRenewals.length} active {expiredRenewals.length === 1 ? "subscription has" : "subscriptions have"} passed its renewal date.
+              </p>
+              <p className="mt-1 text-sm text-white/60">
+                Confirm renewal or cancel/pause anything you no longer need.
+              </p>
+              <Link href="/subscriptions" className="inline-block mt-2 text-sm font-medium text-red-200 hover:text-white">
+                Review subscriptions →
+              </Link>
+            </div>
+          )}
           <CardContent className="p-6 pt-0">
             {upcomingRenewals.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -313,7 +332,7 @@ export default function Dashboard() {
                               isUrgent ? "text-red-400" : isSoon ? "text-yellow-400" : "text-green-400"
                             }`}
                           >
-                            {days === 0 ? "Due today" : days === 1 ? "Due tomorrow" : `${days} days left`}
+                            {getRenewalLabel(days)}
                           </span>
                         </div>
                       </div>
