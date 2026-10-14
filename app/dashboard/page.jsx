@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
 import {
-  PieChart, Pie, Tooltip, ResponsiveContainer, LabelList,
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, LabelList,
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from "recharts"
 import { getDaysUntilRenewal, getRenewalLabel, formatCurrency, formatCurrencyGroups, monthlyAmount, spendByCurrency } from "@/lib/helpers"
@@ -257,10 +257,12 @@ export default function Dashboard() {
                           paddingAngle={3}
                           dataKey="value"
                           labelLine={false}
-                          fill={COLORS}
                           stroke="rgba(255,255,255,0.1)"
                           strokeWidth={1}
                         >
+                          {categoryData.map((entry, index) => (
+                            <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
+                          ))}
                           <LabelList
                             dataKey="value"
                             position="outside"

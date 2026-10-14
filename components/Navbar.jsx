@@ -19,7 +19,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false)
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-white/5 bg-[#07080d]/70 backdrop-blur-2xl">
+    <nav className="sticky top-0 z-50 bg-[#07080d]/70 backdrop-blur-2xl">
       <div className="section-container">
         <div className="flex items-center justify-between h-16">
           <Link

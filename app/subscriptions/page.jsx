@@ -374,7 +374,7 @@ const handleDelete = async (id) => {
                      </div>
                      <div className="relative w-full lg:max-w-sm">
                         <svg
-                           className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30"
+                           className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30"
                            fill="none"
                            viewBox="0 0 24 24"
                            stroke="currentColor"
@@ -382,10 +382,12 @@ const handleDelete = async (id) => {
                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
                         </svg>
                         <input
+                           aria-label="Search services"
                            value={platformSearch}
                            onChange={(e) => setPlatformSearch(e.target.value)}
                            placeholder="Search Netflix, Spotify, Prime..."
-                           className="input-base pl-11 h-12 rounded-2xl"
+                           className="input-base h-12 rounded-2xl"
+                           style={{ paddingLeft: "3rem" }}
                         />
                      </div>
                   </div>
